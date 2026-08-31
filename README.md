@@ -1,4 +1,4 @@
-# OOE-2
+# One Ocean Expedition - Data pipeline
 
 A place to develop python tools for One Ocean Expedition 2
 
