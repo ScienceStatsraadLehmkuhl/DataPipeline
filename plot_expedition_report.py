@@ -73,33 +73,38 @@ def plot_expedition_report(
                 if variable not in df.columns:
                     continue
 
-                try:
-                    fig, ax = plot_property_over_time_pub(
-                        df,
-                        property_column=variable,
-                        experiment=experiment,
-                        instrument=instrument,
-                        plot_labels=PLOT_LABELS,
-                        kind="line",
-                        figsize=EXPEDITION_FIGSIZE,
-                        max_gap=max_gap,
-                        clip_to_leg_window=False,
+                for plot_type, kind, extra_kwargs in (
+                    ("time", "line", {}),
+                    ("time_pts", "scatter", {"marker_size": 0.5}),
+                ):
+                    try:
+                        fig, ax = plot_property_over_time_pub(
+                            df,
+                            property_column=variable,
+                            experiment=experiment,
+                            instrument=instrument,
+                            plot_labels=PLOT_LABELS,
+                            kind=kind,
+                            figsize=EXPEDITION_FIGSIZE,
+                            max_gap=max_gap,
+                            clip_to_leg_window=False,
+                            **extra_kwargs,
+                        )
+                    except ValueError as e:
+                        print(f"      [SKIP] {experiment}/{instrument}/{variable} ({plot_type}): {e}")
+                        continue
+
+                    fig.text(0.98, 0.95, "(5 min average)", ha="right", va="top", fontsize=7, color="0.4")
+
+                    process_fig(
+                        fig,
+                        name=plot_type,
+                        base_name=f"LEGSALL_{experiment}_{instrument}_{variable}",
+                        outdir_pdf=outdir_pdf,
+                        outdir_png=outdir_png,
                     )
-                except ValueError as e:
-                    print(f"      [SKIP] {experiment}/{instrument}/{variable}: {e}")
-                    continue
-
-                fig.text(0.98, 0.95, "(5 min average)", ha="right", va="top", fontsize=7, color="0.4")
-
-                process_fig(
-                    fig,
-                    name="expedition",
-                    base_name=f"{experiment}_{instrument}_{variable}",
-                    outdir_pdf=outdir_pdf,
-                    outdir_png=outdir_png,
-                )
-                n_written += 1
-                print(f"      [OK] Plotted expedition-length {experiment}/{instrument}/{variable}")
+                    n_written += 1
+                    print(f"      [OK] Plotted expedition-length {experiment}/{instrument}/{variable} ({plot_type})")
 
     print(f"\nWrote {n_written} expedition figure(s) to: {fig_root}")
     return n_written
