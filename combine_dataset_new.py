@@ -7,9 +7,9 @@ from typing import Dict, Iterable, List, Tuple
 
 import pandas as pd
 
-from globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from main_globals import CRUISE as DEFAULT_CRUISE
-from main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
+from OneOceanExpedition_DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
+from OneOceanExpedition_DataPipeline.main_globals import CRUISE as DEFAULT_CRUISE
+from OneOceanExpedition_DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
 
 # ---- Intervals to process ----
 INTERVALS = ["1D", "1h", "5min", "3min", "1min"]    #add "cleaned" when it's really necessary
@@ -18,7 +18,6 @@ INTERVALS = ["1D", "1h", "5min", "3min", "1min"]    #add "cleaned" when it's rea
 PROCESSED_DATA_ROOT = Path(
     "/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data"
 )
-
 
 def base_path(cruise: str | None = None) -> Path:
     selected_cruise = cruise or DEFAULT_CRUISE

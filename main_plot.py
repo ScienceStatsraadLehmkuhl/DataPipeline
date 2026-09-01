@@ -2,10 +2,12 @@ import os
 
 import pandas as pd
 
-from globals import LEGS, EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
-from input_tools import input_folders_processer
-from plotters_reports import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
-from manual_data_read import get_logsheet_paths
+from OneOceanExpedition_DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
+from OneOceanExpedition_DataPipeline.input_tools import input_folders_processer
+from OneOceanExpedition_DataPipeline.plotters_reports import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
+from OneOceanExpedition_DataPipeline.manual_data_read import get_logsheet_paths
+from OneOceanExpedition_DataPipeline.plot_expedition_report import plot_expedition_report
+from OneOceanExpedition_DataPipeline.main_globals import CRUISE, LEG, DEFAULT_PLOT_TYPES, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 from pathlib import Path
 
 
@@ -157,5 +159,43 @@ def run_plotting(
                         print(f"      [OK] Plotted {cleaned_path.name}: {experiment}/{instrument}/{variable}")
 
 
+def run_expedition_plotting(
+    cruise,
+    only_experiments=None,
+    only_instruments=None,
+    only_variables=None,
+):
+    """
+    Expedition-length time series (all legs combined), built from the
+    combined 5min files. Not per-leg, so this should be called once,
+    separate from run_plotting()'s per-leg loop.
+    """
+    print(f"\n{'=' * 80}")
+    print(f"                 PLOTTING: {cruise} - FULL EXPEDITION")
+    print(f"{'=' * 80}")
+    plot_expedition_report(
+        cruise=cruise,
+        only_experiments=only_experiments,
+        only_instruments=only_instruments,
+        only_variables=only_variables,
+    )
+
+
 if __name__ == "__main__":
-    run_plotting()
+    legs_to_run = LEGS if LEG is None else [LEG]
+    for leg in legs_to_run:
+        run_plotting(
+            cruise=CRUISE,
+            leg=leg,
+            plot_types_list=DEFAULT_PLOT_TYPES,
+            only_experiments=ONLY_EXPERIMENTS,
+            only_instruments=ONLY_INSTRUMENTS,
+            only_variables=ONLY_VARIABLES,
+        )
+
+    run_expedition_plotting(
+        cruise=CRUISE,
+        only_experiments=ONLY_EXPERIMENTS,
+        only_instruments=ONLY_INSTRUMENTS,
+        only_variables=ONLY_VARIABLES,
+    )

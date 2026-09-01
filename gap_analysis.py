@@ -10,8 +10,9 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from manual_data_read import get_logsheet_paths, load_leg_windows
+from OneOceanExpedition_DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
+from OneOceanExpedition_DataPipeline.main_globals import CRUISE
+from OneOceanExpedition_DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
 
 TIMERS = {"exists_check": 0.0, "csv_read": 0.0, "parse_and_gaps": 0.0}
 
@@ -388,11 +389,15 @@ def _strip_tz_for_excel(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _no_data_gap_rows(cruise: str, stats_df: pd.DataFrame) -> pd.DataFrame:
+def _no_data_gap_rows(cruise: str, stats_df: pd.DataFrame, leg_windows: pd.DataFrame) -> pd.DataFrame:
     """Build one 'No data' row per combo in stats_df whose status is 'No data'.
 
     Lets the gaps sheet show exactly which experiment/instrument combos had
     no usable data, even when other instruments in the same leg had plenty.
+
+    When the leg's start/end window is known, the row's gap length is the
+    full leg window (leg_end - leg_start): with no data at all, the entire
+    leg is uncovered. Falls back to "No data" text if the window is missing.
     """
     if stats_df.empty:
         return pd.DataFrame(columns=GAP_COLUMNS)
@@ -400,18 +405,36 @@ def _no_data_gap_rows(cruise: str, stats_df: pd.DataFrame) -> pd.DataFrame:
     if no_data.empty:
         return pd.DataFrame(columns=GAP_COLUMNS)
 
-    rows = [{
-        "cruise": cruise,
-        "leg": row["leg"],
-        "experiment": row["experiment"],
-        "instrument": row["instrument"],
-        "file_name": "",
-        "gap_type": "No data",
-        "previous_time": "",
-        "current_time": "",
-        "gap_minutes": "No data",
-        "gap_hours": "No data",
-    } for _, row in no_data.iterrows()]
+    rows = []
+    for _, row in no_data.iterrows():
+        leg_window = leg_windows.loc[leg_windows["leg"] == int(row["leg"])]
+        leg_start = leg_window.iloc[0].get("start") if not leg_window.empty else None
+        leg_end = leg_window.iloc[0].get("end") if not leg_window.empty else None
+
+        if pd.notna(leg_start) and pd.notna(leg_end):
+            gap_delta = leg_end - leg_start
+            previous_time = leg_start
+            current_time = leg_end
+            gap_minutes = round(gap_delta.total_seconds() / 60.0, 3)
+            gap_hours = round(gap_delta.total_seconds() / 3600.0, 3)
+        else:
+            previous_time = ""
+            current_time = ""
+            gap_minutes = "No data"
+            gap_hours = "No data"
+
+        rows.append({
+            "cruise": cruise,
+            "leg": row["leg"],
+            "experiment": row["experiment"],
+            "instrument": row["instrument"],
+            "file_name": "",
+            "gap_type": "No data",
+            "previous_time": previous_time,
+            "current_time": current_time,
+            "gap_minutes": gap_minutes,
+            "gap_hours": gap_hours,
+        })
     return pd.DataFrame(rows, columns=GAP_COLUMNS)
 
 
@@ -432,9 +455,7 @@ def run_gap_analysis(
     cruise_dir = Path(
         f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}"
     )
-    leg_output_dir = cruise_dir / "gap_analysis"
     combined_output_dir = cruise_dir / "combined_files"
-    leg_output_dir.mkdir(parents=True, exist_ok=True)
     combined_output_dir.mkdir(parents=True, exist_ok=True)
 
     all_gaps: list[pd.DataFrame] = []
@@ -509,11 +530,11 @@ def run_gap_analysis(
         leg_coverage_df = pd.DataFrame(leg_coverage_rows)
         leg_stats_df = build_statistics(leg_gaps_df, leg_coverage_df)
 
-        leg_no_data_rows = _no_data_gap_rows(cruise, leg_stats_df)
+        leg_no_data_rows = _no_data_gap_rows(cruise, leg_stats_df, leg_windows)
         if not leg_no_data_rows.empty:
             leg_gaps_df = pd.concat([leg_gaps_df, leg_no_data_rows], ignore_index=True)
 
-        leg_path = leg_output_dir / f"gap_analysis_{cruise}_LEG{leg}.xlsx"
+        leg_path = cruise_dir / f"LEG{leg}" / f"gap_analysis_{cruise}_LEG{leg}.xlsx"
         print(f"Writing leg {leg} results to {leg_path}")
         _write_gap_workbook(leg_path, leg_gaps_df, leg_stats_df)
 
@@ -530,7 +551,7 @@ def run_gap_analysis(
     coverage_df = pd.DataFrame(coverage_rows)
     stats_df = build_statistics(gaps_df, coverage_df)
 
-    combined_no_data_rows = _no_data_gap_rows(cruise, stats_df)
+    combined_no_data_rows = _no_data_gap_rows(cruise, stats_df, leg_windows)
     if not combined_no_data_rows.empty:
         gaps_df = pd.concat([gaps_df, combined_no_data_rows], ignore_index=True)
 
@@ -550,7 +571,7 @@ def run_gap_analysis(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze time gaps in the base processed CSV files.")
-    parser.add_argument("--cruise", default="2026_SaS", help="Cruise folder name under processed_data")
+    parser.add_argument("--cruise", default=CRUISE, help="Cruise folder name under processed_data")
     parser.add_argument("--gap-threshold-minutes", type=float, default=1.0, help="Only report gaps larger than this threshold")
     parser.add_argument(
         "--time-format",

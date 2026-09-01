@@ -1,8 +1,9 @@
 import os
-from globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, get_variables
-from input_tools import import_and_process_sources, input_folders_processer
-from data_processing_sensors import data_process
-from manual_data_read import get_logsheet_paths
+from OneOceanExpedition_DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, get_variables
+from OneOceanExpedition_DataPipeline.input_tools import import_and_process_sources, input_folders_processer
+from OneOceanExpedition_DataPipeline.data_processing_sensors import data_process
+from OneOceanExpedition_DataPipeline.manual_data_read import get_logsheet_paths
+from OneOceanExpedition_DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 
 
 
@@ -114,4 +115,12 @@ def run_processing(
 
 
 if __name__ == "__main__":
-    run_processing()
+    legs_to_run = LEGS if LEG is None else [LEG]
+    for leg in legs_to_run:
+        run_processing(
+            cruise=CRUISE,
+            leg=leg,
+            only_experiments=ONLY_EXPERIMENTS,
+            only_instruments=ONLY_INSTRUMENTS,
+            only_variables=ONLY_VARIABLES,
+        )

@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 from pathlib import Path
-from fromzipxmltojson import convert_zips_to_csvs
-from fileformatconversion import  convert_jsons_to_csvs, copy_csv_files, convert_cnv_to_csv
-from preprocessing import from_csvs_to_csv
+from OneOceanExpedition_DataPipeline.fromzipxmltojson import convert_zips_to_csvs
+from OneOceanExpedition_DataPipeline.fileformatconversion import  convert_jsons_to_csvs, copy_csv_files, convert_cnv_to_csv
+from OneOceanExpedition_DataPipeline.preprocessing import from_csvs_to_csv
 
 
 def input_folders_processer(leg, experiment, instrument, cruise):
@@ -235,73 +235,6 @@ def ensure_combined_csv(
 
     from_csvs_to_csv(output_folder_name, combined_path)
     return combined_path
-
-
-
-
-
-# def ensure_combined_csv(
-#     input_folder_name: str | None,
-#     output_folder_name: str,
-#     exp_folder_name: str,
-#     output_file: str,
-# ):
-#     """
-#     Ensure the combined CSV exists at exp_folder_name/output_file.
-
-#     Rules:
-#       1) If combined file exists -> return it.
-#       2) Else if output_folder_name contains CSVs -> combine them into combined file.
-#       3) Else if input_folder_name missing/has no relevant files -> raise.
-#       4) Else rebuild CSVs from input_folder_name, then combine.
-#     """
-#     combined_path = os.path.join(exp_folder_name, output_file)
-#     if os.path.exists(combined_path):
-#         return combined_path
-
-#     # 2) If we already have processed CSVs, just combine them.
-#     if _has_output_csvs(output_folder_name):
-#         os.makedirs(exp_folder_name, exist_ok=True)
-#         from_csvs_to_csv(output_folder_name, combined_path)
-#         return combined_path
-
-#     # 3) No processed CSVs available; need relevant raw inputs to rebuild.
-#     if not _has_relevant_inputs(input_folder_name):
-#         raise FileNotFoundError(
-#             f"         1. Combined file not found\n"
-#             f"         2. No CSVs found in output folder to combine\n"
-#             f"         3. Raw input folder missing or has no relevant files"
-#         )
-
-#     os.makedirs(output_folder_name, exist_ok=True)
-#     os.makedirs(exp_folder_name, exist_ok=True)
-
-#     grouping_done = False
-#     for filename in os.listdir(input_folder_name):
-#         filepath = os.path.join(input_folder_name, filename)
-
-#         if not os.path.isfile(filepath):
-#             continue
-
-#         lower = filename.lower()
-#         if lower.endswith(".zip"):
-#             convert_zips_to_csvs(filepath, output_folder_name)
-
-#         elif lower.endswith(".json"):
-#             convert_jsons_to_csvs(input_folder_name, filepath, output_folder_name)
-
-#         elif lower.endswith(".csv") and not grouping_done:
-#             group_csv_files(input_folder_name, output_folder_name)
-#             grouping_done = True
-
-#         elif lower.endswith(".cnv"):
-#             convert_cnv_to_csv(input_folder_name, filename, output_folder_name)
-
-#     from_csvs_to_csv(output_folder_name, combined_path)
-#     return combined_path
-
-
-
 
 
 def load_combined_csv(combined_path: str) -> pd.DataFrame:

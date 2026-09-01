@@ -2,9 +2,9 @@ from pathlib import Path
 import os
 import pandas as pd
 import numpy as np
-from fromzipxmltojson import read_csv
+from OneOceanExpedition_DataPipeline.fromzipxmltojson import read_csv
 import csv
-from fileformatconversion import get_time_from_filename
+from OneOceanExpedition_DataPipeline.fileformatconversion import get_time_from_filename
 
 
 TIME_ALIAS = ["System Date and Time","timestamp", "Timestamp", "NMEA_UTC_(Time)"]
