@@ -9,8 +9,8 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from OneOceanExpedition_DataPipeline.globals import PLOT_LABELS
-from OneOceanExpedition_DataPipeline.manual_data_read import  load_leg_windows
+from DataPipeline.globals import PLOT_LABELS
+from DataPipeline.manual_data_read import  load_leg_windows
 
 
 def get_plot_label(plot_labels, experiment, instrument, key, default=None):

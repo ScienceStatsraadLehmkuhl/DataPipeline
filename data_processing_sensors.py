@@ -4,11 +4,11 @@ Set of functions to work on data
 import pandas as pd
 import os
 import numpy as np
-from OneOceanExpedition_DataPipeline.input_tools import *
-from OneOceanExpedition_DataPipeline.cleaning import cleaning
+from DataPipeline.input_tools import *
+from DataPipeline.cleaning import cleaning
 
-from OneOceanExpedition_DataPipeline.globals import RENAME_COLUMNS
-from OneOceanExpedition_DataPipeline.preprocessing import TIME_ALIAS
+from DataPipeline.globals import RENAME_COLUMNS
+from DataPipeline.preprocessing import TIME_ALIAS
 import numpy as np
 import pandas as pd
 from pathlib import Path

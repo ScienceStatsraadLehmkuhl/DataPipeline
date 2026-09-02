@@ -2,12 +2,12 @@ import os
 
 import pandas as pd
 
-from OneOceanExpedition_DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
-from OneOceanExpedition_DataPipeline.input_tools import input_folders_processer
-from OneOceanExpedition_DataPipeline.plotters_reports import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
-from OneOceanExpedition_DataPipeline.manual_data_read import get_logsheet_paths
-from OneOceanExpedition_DataPipeline.plot_expedition_report import plot_expedition_report
-from OneOceanExpedition_DataPipeline.main_globals import CRUISE, LEG, DEFAULT_PLOT_TYPES, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
+from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
+from DataPipeline.input_tools import input_folders_processer
+from DataPipeline.plotters_reports import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
+from DataPipeline.manual_data_read import get_logsheet_paths
+from DataPipeline.plot_expedition_report import plot_expedition_report
+from DataPipeline.main_globals import CRUISE, LEG, DEFAULT_PLOT_TYPES, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 from pathlib import Path
 
 

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
-from OneOceanExpedition_DataPipeline.manual_data_read import load_leg_windows, load_pressure_removal_rules
-from OneOceanExpedition_DataPipeline.main_globals import PRESSURE_REMOVAL_BUFFER_MINUTES
+from DataPipeline.manual_data_read import load_leg_windows, load_pressure_removal_rules
+from DataPipeline.main_globals import PRESSURE_REMOVAL_BUFFER_MINUTES
 
 load_leg_windows.cache_clear()
 

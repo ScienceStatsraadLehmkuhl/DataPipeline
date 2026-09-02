@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from OneOceanExpedition_DataPipeline.main_process_sensors import run_processing
-from OneOceanExpedition_DataPipeline.main_plot import run_plotting, run_expedition_plotting
-from OneOceanExpedition_DataPipeline.main_globals import *
-from OneOceanExpedition_DataPipeline.globals import LEGS
-from OneOceanExpedition_DataPipeline.cli import parse_args
-from OneOceanExpedition_DataPipeline.combine_dataset_new import combine_all_intervals
-from OneOceanExpedition_DataPipeline.gap_analysis import run_gap_analysis
+from DataPipeline.main_process_sensors import run_processing
+from DataPipeline.main_plot import run_plotting, run_expedition_plotting
+from DataPipeline.main_globals import *
+from DataPipeline.globals import LEGS
+from DataPipeline.cli import parse_args
+from DataPipeline.combine_dataset_new import combine_all_intervals
+from DataPipeline.gap_analysis import run_gap_analysis
 
 
 if __name__ == "__main__":

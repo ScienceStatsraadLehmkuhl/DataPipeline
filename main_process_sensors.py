@@ -1,9 +1,9 @@
 import os
-from OneOceanExpedition_DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, get_variables
-from OneOceanExpedition_DataPipeline.input_tools import import_and_process_sources, input_folders_processer
-from OneOceanExpedition_DataPipeline.data_processing_sensors import data_process
-from OneOceanExpedition_DataPipeline.manual_data_read import get_logsheet_paths
-from OneOceanExpedition_DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
+from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, get_variables
+from DataPipeline.input_tools import import_and_process_sources, input_folders_processer
+from DataPipeline.data_processing_sensors import data_process
+from DataPipeline.manual_data_read import get_logsheet_paths
+from DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 
 
 

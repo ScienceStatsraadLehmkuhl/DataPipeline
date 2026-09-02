@@ -7,9 +7,9 @@ from typing import Dict, Iterable, List, Tuple
 
 import pandas as pd
 
-from OneOceanExpedition_DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from OneOceanExpedition_DataPipeline.main_globals import CRUISE as DEFAULT_CRUISE
-from OneOceanExpedition_DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
+from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
+from DataPipeline.main_globals import CRUISE as DEFAULT_CRUISE
+from DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
 
 # ---- Intervals to process ----
 INTERVALS = ["1D", "1h", "5min", "3min", "1min"]    #add "cleaned" when it's really necessary

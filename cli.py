@@ -1,5 +1,5 @@
 import argparse
-from OneOceanExpedition_DataPipeline.main_globals import (
+from DataPipeline.main_globals import (
     CRUISE,
     DEFAULT_PLOT_TYPES,
     LEG,

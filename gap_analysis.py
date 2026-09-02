@@ -10,9 +10,9 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from OneOceanExpedition_DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from OneOceanExpedition_DataPipeline.main_globals import CRUISE
-from OneOceanExpedition_DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
+from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
+from DataPipeline.main_globals import CRUISE
+from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
 
 TIMERS = {"exists_check": 0.0, "csv_read": 0.0, "parse_and_gaps": 0.0}
 

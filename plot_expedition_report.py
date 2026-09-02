@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from OneOceanExpedition_DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
-from OneOceanExpedition_DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
-from OneOceanExpedition_DataPipeline.combine_dataset_new import combined_output_folder, combined_output_root
-from OneOceanExpedition_DataPipeline.plotters_reports import plot_property_over_time_pub, process_fig
+from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
+from DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
+from DataPipeline.combine_dataset_new import combined_output_folder, combined_output_root
+from DataPipeline.plotters_reports import plot_property_over_time_pub, process_fig
 
 EXPEDITION_INTERVAL = "5min"
 # Data points are 5 min apart; break the line only on gaps well beyond that
