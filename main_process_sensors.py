@@ -1,10 +1,99 @@
 import os
 from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, get_variables
-from DataPipeline.input_tools import import_and_process_sources, input_folders_processer
-from DataPipeline.data_processing_sensors import data_process
+from DataPipeline.input_tools import import_and_process_sources, input_folders_processer, update_csv
+from DataPipeline.data_processing_sensors import data_process, keep_and_rename
 from DataPipeline.manual_data_read import get_logsheet_paths
-from DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
+from DataPipeline.main_globals import (
+    CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES,
+    GGA_GAP_FILL_THRESHOLD_MINUTES,
+)
+from DataPipeline.gps_gap_fill import (
+    find_gga_gaps,
+    extract_ek80_gap_positions,
+    extract_ferrybox_positions,
+    merge_gga_with_gap_fill,
+    ECHOSOUNDER_NC_SUBFOLDER,
+    ECHOSOUNDER_CSV_SUBFOLDER,
+)
 
+
+
+def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, exp_folder_name, leg_start_end_path):
+    """
+    Check the just-processed GGA for gaps and, if any exceed
+    GGA_GAP_FILL_THRESHOLD_MINUTES, fill them from EK80/Ferrybox positions
+    (both share GGA's MRU) and return the merged position set to use as
+    gga_df for georeferencing everything else. Returns gga_df unchanged if
+    there are no gaps worth filling.
+    """
+    gap_windows = find_gga_gaps(
+        gga_cleaned_csv,
+        current_leg,
+        leg_start_end_path,
+        threshold_minutes=GGA_GAP_FILL_THRESHOLD_MINUTES,
+    )
+
+    if not gap_windows:
+        return gga_df
+
+    print(
+        f"      [GAP-FILL] {len(gap_windows)} GGA gap(s) > {GGA_GAP_FILL_THRESHOLD_MINUTES} min "
+        f"in LEG {current_leg}; pulling positions from EK80/Ferrybox"
+    )
+
+    (
+        ek80_input_folder,
+        _ek80_output_folder,
+        ek80_exp_folder,
+        _ek80_fig_png,
+        _ek80_fig_pdf,
+        _ek80_cleaned_output_file,
+        _ek80_output_file,
+        _ek80_base_name,
+    ) = input_folders_processer(current_leg, "ACOUSTIC", "EK80-RAW", cruise=cruise)
+    try:
+        ek80_positions = extract_ek80_gap_positions(
+            ek80_input_folder,
+            os.path.join(ek80_exp_folder, ECHOSOUNDER_NC_SUBFOLDER),
+            os.path.join(ek80_exp_folder, ECHOSOUNDER_CSV_SUBFOLDER),
+            gap_windows,
+        )
+    except Exception as exc:
+        print(f"      [WARN] Could not load EK80 positions for gap-fill: {exc}")
+        ek80_positions = None
+
+    (
+        ferry_input_folder,
+        ferry_output_folder,
+        ferry_exp_folder,
+        _ferry_fig_png,
+        _ferry_fig_pdf,
+        _ferry_cleaned_output_file,
+        ferry_output_file,
+        _ferry_base_name,
+    ) = input_folders_processer(current_leg, "OCEANOGRAPHY", "Ferrybox_CTD", cruise=cruise)
+    try:
+        ferry_raw_df = import_and_process_sources(
+            ferry_input_folder, ferry_output_folder, ferry_exp_folder, ferry_output_file,
+        )
+        ferry_df = keep_and_rename(
+            ferry_raw_df, RENAME_COLUMNS["OCEANOGRAPHY"]["Ferrybox_CTD"], warn_missing=False,
+        )
+    except Exception as exc:
+        print(f"      [WARN] Could not load Ferrybox positions for gap-fill: {exc}")
+        ferry_df = None
+    ferrybox_positions = extract_ferrybox_positions(ferry_df, gap_windows)
+
+    merged = merge_gga_with_gap_fill(gga_df, ek80_positions, ferrybox_positions)
+
+    n_ek80 = merged["source"].isin(["EK80_gps", "EK80_mru_secondary"]).sum()
+    n_ferrybox = (merged["source"] == "Ferrybox").sum()
+    print(f"      [GAP-FILL] added {n_ek80} EK80 fix(es), {n_ferrybox} Ferrybox fix(es) inside gaps")
+
+    merged_path = os.path.join(exp_folder_name, f"{cruise}_LEG{current_leg}_NAVIGATION_GPS_merged.csv")
+    update_csv(merged, merged_path)
+
+    return merged
 
 
 def run_processing(
@@ -98,7 +187,19 @@ def run_processing(
                         )
 
                     if experiment == "NAVIGATION" and instrument == "GGA":
-                        gga_df = df.copy()
+                        if update_flag:
+                            # gap-fill needs the cleaned GGA CSV on disk (written by
+                            # data_process above), so only run it when that happened.
+                            gga_df = _apply_gga_gap_fill(
+                                cruise,
+                                current_leg,
+                                df.copy(),
+                                cleaned_output_file,
+                                exp_folder_name,
+                                leg_start_end_path,
+                            )
+                        else:
+                            gga_df = df.copy()
 
                     print(f"      [OK] Processed LEG {current_leg}: {instrument}")
 

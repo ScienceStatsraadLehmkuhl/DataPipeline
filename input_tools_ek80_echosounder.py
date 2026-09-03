@@ -10,6 +10,7 @@ os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
 
 import glob
 import shutil
+import sys
 import tempfile
 import time
 import traceback
@@ -17,6 +18,15 @@ from pathlib import Path
 
 import pandas as pd
 import echopype as ep
+
+# input_tools_ek80_adcp is imported bare (not as DataPipeline.input_tools_ek80_adcp)
+# so this module can be run standalone from inside DataPipeline/. Ensure this
+# file's own directory is on sys.path so the same bare import also resolves
+# when this module is instead imported as DataPipeline.input_tools_ek80_echosounder
+# (e.g. from DataPipeline.main_process_sensors) -- same fix as DataPipeline/gap_analysis.py.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
 from input_tools_ek80_adcp import exclude_ek80_adcp_channels
 
