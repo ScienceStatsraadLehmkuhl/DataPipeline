@@ -53,5 +53,6 @@ if __name__ == "__main__":
     if args.run_gap_analysis and args.mode in ("process", "both"):
         run_gap_analysis(
             cruise=args.cruise,
+            leg=args.leg,
             cache_dir=Path.home() / ".cache" / "gap_analysis" / args.cruise,
         )

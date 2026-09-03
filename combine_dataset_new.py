@@ -19,9 +19,12 @@ PROCESSED_DATA_ROOT = Path(
     "/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data"
 )
 
+def resolve_cruise(cruise: str | None = None) -> str:
+    return cruise or DEFAULT_CRUISE
+
+
 def base_path(cruise: str | None = None) -> Path:
-    selected_cruise = cruise or DEFAULT_CRUISE
-    return PROCESSED_DATA_ROOT / selected_cruise
+    return PROCESSED_DATA_ROOT / resolve_cruise(cruise)
 
 
 def combined_output_root(cruise: str | None = None) -> Path:
@@ -41,14 +44,14 @@ def target_end(interval: str) -> str:
     return f"_{interval}.csv"
 
 
-def extract_instrument(filename: str, leg: str, experiment: str, interval: str) -> str | None:
+def extract_instrument(filename: str, leg: str, experiment: str, interval: str, cruise: str | None = None) -> str | None:
     """
     Accept:
-      LEG{leg}_{experiment}_{instrument}_..._{interval}.csv
-      LEG{leg}_{experiment}_{instrument}_{interval}.csv
+      {cruise}_LEG{leg}_{experiment}_{instrument}_..._{interval}.csv
+      {cruise}_LEG{leg}_{experiment}_{instrument}_{interval}.csv
     Instrument is detected by matching the known instrument list for that experiment.
     """
-    prefix = f"LEG{leg}_{experiment}_"
+    prefix = f"{resolve_cruise(cruise)}_LEG{leg}_{experiment}_"
     end = target_end(interval)
     if not filename.startswith(prefix) or not filename.endswith(end):
         return None
@@ -63,12 +66,13 @@ def extract_instrument(filename: str, leg: str, experiment: str, interval: str) 
 def iter_files_for_experiment(experiment: str, interval: str, cruise: str | None = None) -> Iterable[Tuple[str, Path]]:
     """Yield (leg, filepath) for all files of a given interval across all legs for one experiment."""
     end = target_end(interval)
+    selected_cruise = resolve_cruise(cruise)
     for leg in LEGS:
         in_dir = exp_folder_path(leg, experiment, cruise=cruise)
         if not in_dir.exists():
             continue
         # Only files for this leg+experiment that end with the interval suffix
-        yield from ((leg, p) for p in in_dir.glob(f"LEG{leg}_{experiment}_*{end}"))
+        yield from ((leg, p) for p in in_dir.glob(f"{selected_cruise}_LEG{leg}_{experiment}_*{end}"))
 
 
 def combine_and_sort(files_with_leg: List[Tuple[str, Path]], time_col: str = "time") -> pd.DataFrame:
@@ -111,7 +115,7 @@ def combine_one_experiment_instrument(experiment: str, instrument: str, interval
 
     matched: List[Tuple[str, Path]] = []
     for leg, path in iter_files_for_experiment(experiment, interval, cruise=cruise):
-        inst = extract_instrument(path.name, leg, experiment, interval)
+        inst = extract_instrument(path.name, leg, experiment, interval, cruise=cruise)
         if inst == instrument:
             matched.append((leg, path))
 

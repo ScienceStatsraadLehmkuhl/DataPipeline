@@ -25,7 +25,7 @@ def input_folders_processer(leg, experiment, instrument, cruise):
     fig_pdf_folder_name = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/LEG{leg}/FIGURES/PDF"
 
 
-    base_name = f"LEG{leg}_{experiment}_{instrument}"
+    base_name = f"{cruise}_LEG{leg}_{experiment}_{instrument}"
     output_file = str(Path(exp_folder_name) / f"{base_name}.csv")
     cleaned_output_file = str(Path(exp_folder_name) / f"{base_name}_cleaned.csv")
 

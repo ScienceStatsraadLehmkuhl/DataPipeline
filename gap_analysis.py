@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from DataPipeline.main_globals import CRUISE
+from DataPipeline.main_globals import CRUISE, LEG
 from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
 
 TIMERS = {"exists_check": 0.0, "csv_read": 0.0, "parse_and_gaps": 0.0}
@@ -54,7 +54,7 @@ def resolve_time_column(columns: Iterable[str]) -> str:
     raise ValueError(f"No time-like column found among columns: {columns}")
 
 
-def iter_target_files(cruise: str) -> Iterable[dict]:
+def iter_target_files(cruise: str, legs: Iterable[str] | None = None) -> Iterable[dict]:
     """Yield every expected LEG{leg}_{experiment}_{instrument}.csv combo, whether or not it exists.
 
     Missing files are yielded too (with exists=False) so callers can report
@@ -64,10 +64,13 @@ def iter_target_files(cruise: str) -> Iterable[dict]:
         f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}"
     )
 
-    for leg in LEGS:
+    if legs is None:
+        legs = LEGS
+
+    for leg in legs:
         for experiment in EXPERIMENTS:
             for instrument in INSTRUMENTS.get(experiment, []):
-                file_path = base_dir / f"LEG{leg}" / experiment / f"LEG{leg}_{experiment}_{instrument}.csv"
+                file_path = base_dir / f"LEG{leg}" / experiment / f"{cruise}_LEG{leg}_{experiment}_{instrument}.csv"
                 t0 = time.perf_counter()
                 exists = file_path.exists()
                 TIMERS["exists_check"] += time.perf_counter() - t0
@@ -447,16 +450,23 @@ def _write_gap_workbook(path: Path, gaps_df: pd.DataFrame, stats_df: pd.DataFram
 
 def run_gap_analysis(
     cruise: str,
+    leg: str | None = None,
     threshold_minutes: float = 1.0,
     time_format: str | None = None,
     cache_dir: Path | None = None,
 ) -> Path:
-    """Analyze all target files, write one Excel workbook per leg, and one combined workbook."""
+    """Analyze all target files, write one Excel workbook per leg, and one combined workbook.
+
+    leg: single leg to run. Omit / pass None to run all legs (same convention
+    as the other run_* entry points).
+    """
     cruise_dir = Path(
         f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}"
     )
     combined_output_dir = cruise_dir / "combined_files"
     combined_output_dir.mkdir(parents=True, exist_ok=True)
+
+    legs_to_run = LEGS if leg is None else [leg]
 
     all_gaps: list[pd.DataFrame] = []
     coverage_rows: list[dict] = []
@@ -473,7 +483,7 @@ def run_gap_analysis(
     # iter_target_files iterates legs as the outer loop, so entries for the
     # same leg are contiguous - groupby lets us write each leg's workbook
     # the moment that leg is done, instead of waiting for the whole cruise.
-    for leg, leg_entries in itertools.groupby(iter_target_files(cruise), key=lambda e: e["leg"]):
+    for leg, leg_entries in itertools.groupby(iter_target_files(cruise, legs=legs_to_run), key=lambda e: e["leg"]):
         leg_gap_frames: list[pd.DataFrame] = []
         leg_coverage_rows: list[dict] = []
 
@@ -534,7 +544,7 @@ def run_gap_analysis(
         if not leg_no_data_rows.empty:
             leg_gaps_df = pd.concat([leg_gaps_df, leg_no_data_rows], ignore_index=True)
 
-        leg_path = cruise_dir / f"LEG{leg}" / f"gap_analysis_{cruise}_LEG{leg}.xlsx"
+        leg_path = cruise_dir / f"LEG{leg}" / f"{cruise}_LEG{leg}_gap_analysis.xlsx"
         print(f"Writing leg {leg} results to {leg_path}")
         _write_gap_workbook(leg_path, leg_gaps_df, leg_stats_df)
 
@@ -557,7 +567,7 @@ def run_gap_analysis(
 
     # Combined workbook across all legs, in the existing combined_files/ folder.
     # This one still has to wait until every leg is done, since it needs all of them.
-    output_path = combined_output_dir / f"gap_analysis_{cruise}.xlsx"
+    output_path = combined_output_dir / f"{cruise}_gap_analysis.xlsx"
     print(f"Writing combined results to {output_path}")
     _write_gap_workbook(output_path, gaps_df, stats_df)
 
@@ -572,6 +582,7 @@ def run_gap_analysis(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze time gaps in the base processed CSV files.")
     parser.add_argument("--cruise", default=CRUISE, help="Cruise folder name under processed_data")
+    parser.add_argument("--leg", default=LEG, help="Single leg to run. Omit / use None in settings to run all legs.")
     parser.add_argument("--gap-threshold-minutes", type=float, default=1.0, help="Only report gaps larger than this threshold")
     parser.add_argument(
         "--time-format",

@@ -12,7 +12,7 @@ LEG = "17"    # To run only one leg
 #LEG = None   # To run all legs
 
     #Processing? Plotting? both?
-MODE = "both"  # "process", "plot", or "both"
+MODE = "process"  # "process", "plot", or "both"
 
     ##What to run: 
 ONLY_EXPERIMENTS = None   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"] ##Always pick navigation + other things

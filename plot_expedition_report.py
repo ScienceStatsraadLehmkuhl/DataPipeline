@@ -13,7 +13,7 @@ import pandas as pd
 
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
 from DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
-from DataPipeline.combine_dataset_new import combined_output_folder, combined_output_root
+from DataPipeline.combine_dataset_new import combined_output_folder, combined_output_root, resolve_cruise
 from DataPipeline.plotters_reports import plot_property_over_time_pub, process_fig
 
 EXPEDITION_INTERVAL = "5min"
@@ -42,6 +42,7 @@ def plot_expedition_report(
     fig_root = expedition_figures_root(cruise)
     outdir_pdf = fig_root / "PDF"
     outdir_png = fig_root / "PNG"
+    selected_cruise = resolve_cruise(cruise)
 
     experiments = EXPERIMENTS
     if only_experiments is not None:
@@ -99,7 +100,7 @@ def plot_expedition_report(
                     process_fig(
                         fig,
                         name=plot_type,
-                        base_name=f"LEGSALL_{experiment}_{instrument}_{variable}",
+                        base_name=f"{selected_cruise}_LEGSALL_{experiment}_{instrument}_{variable}",
                         outdir_pdf=outdir_pdf,
                         outdir_png=outdir_png,
                     )
