@@ -8,7 +8,7 @@ CRUISE = "2026_SaS"
 #CRUISE = "2025_2026_OOE2"
 
     ## leg
-LEG = "16"    # To run only one leg
+LEG = "17"    # To run only one leg
 #LEG = None   # To run all legs
 
     #Processing? Plotting? both?
