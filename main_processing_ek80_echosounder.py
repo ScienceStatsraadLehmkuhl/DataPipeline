@@ -1,14 +1,17 @@
+import os
+import traceback
+
 from globals import LEGS
 from input_tools import input_folders_processer
 from input_tools_ek80_echosounder import ensure_ek80_echosounder_combined_csv
 from main_globals import *
-import traceback
-
-
 
 
 EXPERIMENT = "ACOUSTIC"
-INSTRUMENT = "EK80-RAW"
+INSTRUMENT_RAW = "EK80-RAW"  # actual raw-file folder name on the input share
+ECHOSOUNDER_NCDF_SUBFOLDER = "EK80_echos_ncdf"
+ECHOSOUNDER_CSV_SUBFOLDER = "EK80_echos_csv"
+
 
 
 
@@ -25,19 +28,23 @@ def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
 
         (
             input_folder_name,
-            output_folder_name,
+            _output_folder_name,
             exp_folder_name,
             _fig_png_folder_name,
             _fig_pdf_folder_name,
             _cleaned_output_file,
             output_file,
             _base_name,
-        ) = input_folders_processer(current_leg, EXPERIMENT, INSTRUMENT, cruise=cruise)
+        ) = input_folders_processer(current_leg, EXPERIMENT, INSTRUMENT_RAW, cruise=cruise)
+
+        echosounder_nc_folder_name = os.path.join(exp_folder_name, ECHOSOUNDER_NCDF_SUBFOLDER)
+        echosounder_csv_folder_name = os.path.join(exp_folder_name, ECHOSOUNDER_CSV_SUBFOLDER)
 
         try:
             combined_path = ensure_ek80_echosounder_combined_csv(
                 input_folder_name=input_folder_name,
-                output_folder_name=output_folder_name,
+                nc_folder_name=echosounder_nc_folder_name,
+                csv_folder_name=echosounder_csv_folder_name,
                 exp_folder_name=exp_folder_name,
                 output_file=output_file,
                 sonar_model=sonar_model,

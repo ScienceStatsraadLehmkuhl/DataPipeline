@@ -1,4 +1,12 @@
 import os
+
+# HDF5 tries to take POSIX byte-range locks on every file it opens. The
+# gvfs/FUSE SMB mounts this pipeline writes to don't support that reliably,
+# which surfaces as intermittent "OSError: [Errno -101] NetCDF: HDF error"
+# part-way through a run. Must be set before netCDF4/xarray/echopype touch
+# the HDF5 library.
+os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
+
 import traceback
 from collections import defaultdict
 from contextlib import contextmanager
