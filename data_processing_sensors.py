@@ -175,6 +175,7 @@ def data_process(
     sooguard_path=None,
     exclude_numeric_cols=None,  # columns to skip during numeric coercion (flags, IDs, notes, etc.)
     raw_source_path=None,       # NEW: path to the combined raw CSV `df` was loaded from
+    gps_source_path=None,       # NEW: path to GPS-MERGED-SOURCES.csv (gga_df's own on-disk source)
     ):
 
     # --- Step 1: Optionally rename/select columns using a rename map ---
@@ -204,10 +205,14 @@ def data_process(
         if cleaned_csv is not None:
             geotag_csv, geotag_cleaned_csv = _derive_geotag_paths(cleaned_csv)
 
-        # NEW: force a full rebuild if the raw/combined source is newer
-        # than the existing geotag file — new data means the reused file
-        # would otherwise silently miss it.
-        force_reprocess = _stale_relative_to(geotag_csv, raw_source_path)
+        # NEW: force a full rebuild if the raw/combined source, OR the GPS
+        # source gga_df came from (GPS-MERGED-SOURCES.csv), is newer than
+        # the existing geotag file — either means the reused file would
+        # otherwise silently miss new data or an updated position source.
+        force_reprocess = (
+            _stale_relative_to(geotag_csv, raw_source_path)
+            or _stale_relative_to(geotag_csv, gps_source_path)
+        )
 
         # --- Step 5a: Reuse a previously computed geotag file, only if fresh ---
         if reuse_existing_geotag and not force_reprocess and geotag_csv and os.path.exists(geotag_csv):

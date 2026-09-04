@@ -55,6 +55,45 @@ def _in_any_window(times: pd.Series, windows: list[tuple]) -> pd.Series:
     return mask
 
 
+def gps_merged_sources_path(cruise: str, leg, exp_folder_name: str) -> str:
+    """Path to a leg's merged GPS product (GGA plus any EK80/Ferrybox gap-fill).
+
+    Single source of truth for this filename -- both _apply_gga_gap_fill
+    (which writes it) and run_processing (which needs the path to pass to
+    every other instrument's data_process call, for geotag staleness
+    checking) must agree on it exactly.
+    """
+    return os.path.join(exp_folder_name, f"{cruise}_LEG{leg}_NAVIGATION_GPS-MERGED-SOURCES.csv")
+
+
+def load_cached_merged_positions(merged_path: str, gga_source_csv: str) -> pd.DataFrame | None:
+    """
+    Return the existing merged GPS product at `merged_path` if it's already
+    at least as fresh as `gga_source_csv`, else None.
+
+    `gga_source_csv` must be a staleness-protected file -- GGA's *raw
+    combined* CSV (built by ensure_combined_csv, which only rewrites it
+    when new raw data actually lands), not its cleaned CSV. data_process's
+    cleaning step (data_processing_sensors.py) rewrites the cleaned CSV
+    unconditionally on every run with no staleness check of its own, so
+    comparing against that would make this look stale every time too --
+    the same trap this function exists to avoid for merged_path itself.
+
+    Gap-checking is cheap, but a full gap-fill (EK80 file selection +
+    conversion + Ferrybox pull) is not -- and none of it is worth redoing
+    when GGA's own data hasn't changed since the merged product was last
+    built. This also keeps merged_path's own mtime meaningful: it's only
+    ever rewritten when something actually changed, rather than on every
+    run, which is what a downstream "is the GPS file newer than X" check
+    would need to make sense in the first place.
+    """
+    if not os.path.exists(merged_path) or not os.path.exists(gga_source_csv):
+        return None
+    if os.path.getmtime(merged_path) < os.path.getmtime(gga_source_csv):
+        return None
+    return pd.read_csv(merged_path, parse_dates=["time"])
+
+
 def find_gga_gaps(
     gga_cleaned_csv: str,
     leg,
@@ -245,17 +284,6 @@ def extract_ek80_gap_positions(
     )
     positions["source"] = "EK80_gps"
     positions = positions[POSITION_COLUMNS]
-
-    # The MRU feed (time3) logs far faster than GGA (observed: tens-hundreds of Hz,
-    # vs. GGA's ~1Hz) -- downstream geotagging only ever uses the single nearest
-    # candidate per target row (merge_asof, 1s tolerance), so sub-second duplicates
-    # add no value while inflating gga_df/Position_merged.csv by orders of magnitude.
-    # Thin to one fix per second before returning.
-    n_raw = len(positions)
-    positions = positions.sort_values("time")
-    positions = positions.loc[~positions["time"].dt.floor("1s").duplicated(keep="first")]
-    if n_raw != len(positions):
-        print(f"      [GAP-FILL] Thinned EK80 MRU positions from {n_raw} to {len(positions)} row(s) (1 per second)")
 
     n_before_window_filter = len(positions)
     positions = positions.loc[_in_any_window(positions["time"], gap_windows)]
