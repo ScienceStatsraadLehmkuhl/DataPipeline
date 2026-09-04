@@ -11,8 +11,7 @@ them at the raw-file level was ruled out).
 
 For EK80's Platform group, only the time3/latitude_mru1/longitude_mru1
 (secondary MRU position feed) columns carry data on this cruise's
-EK80/GPS setup -- time1/latitude/longitude (the primary GPS fix variables)
-were confirmed all-NaN, so only the MRU feed is extracted.
+EK80/GPS setup.
 
 For EK80 specifically, only the .raw files overlapping a gap window are
 converted (by parsing the timestamp out of each filename, no need to open
@@ -28,6 +27,17 @@ confirmed GGA gap, there is no overlap with GGA's own coverage and thus no
 need for a source-priority merge -- concatenation is enough, and per-target
 geotagging (add_gps_coordinates_from_df's merge_asof) picks whichever
 candidate is nearest in time regardless of source.
+
+A third, last-resort source -- "Bridge" -- is tried only for whatever gap
+windows EK80/Ferrybox still leave uncovered (see
+gap_windows_without_coverage). It comes from the ship's own bridge
+navigation software, manually exported to one xlsx file per covered leg
+under NAVIGATION/Bridge (sibling to SEAPATH, not nested under an
+instrument). Unlike every other source here, Bridge files are not raw
+instrument output run through the pipeline's usual combine/clean step --
+they're read directly in this module (see extract_bridge_gap_positions),
+since they exist purely to patch position gaps, not to be processed as an
+instrument in their own right.
 """
 import os
 import re
@@ -37,6 +47,7 @@ import pandas as pd
 
 from DataPipeline.gap_analysis import analyze_gaps_for_file
 from DataPipeline.manual_data_read import load_leg_windows
+from DataPipeline.input_tools import give_me_full_folder_name
 from DataPipeline.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
 
 
@@ -340,10 +351,150 @@ def extract_ferrybox_positions(
     return positions.sort_values("time").reset_index(drop=True)
 
 
+def gap_windows_without_coverage(
+    gap_windows: list[tuple],
+    *position_frames: pd.DataFrame | None,
+) -> list[tuple]:
+    """
+    Subset of gap_windows that none of position_frames put a fix inside.
+
+    Used to gate the Bridge (last-resort) source to only the gaps
+    EK80/Ferrybox actually left open, rather than always consulting it
+    alongside them -- see module docstring.
+    """
+    non_empty = [df["time"] for df in position_frames if df is not None and not df.empty]
+    filled_times = pd.concat(non_empty, ignore_index=True) if non_empty else pd.Series(dtype="object")
+
+    return [
+        (start, end) for start, end in gap_windows
+        if filled_times.empty or not ((filled_times >= start) & (filled_times <= end)).any()
+    ]
+
+
+def find_bridge_input_folder(cruise: str, leg) -> str | None:
+    """
+    Path to this leg's ship-navigation "Bridge" xlsx folder.
+
+    Sits at NAVIGATION/Bridge on the raw geomatics share -- a sibling of
+    SEAPATH, not nested under an instrument name like GGA/HDT/etc. -- so
+    built directly here with the same LEG{leg} resolution
+    input_folders_processer uses, rather than through its SEAPATH-specific
+    branch (input_tools.input_folders_processer), which doesn't fit this
+    source.
+    """
+    leg_root = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=geomatics/{cruise}/LEG{leg}"
+    leg_root = give_me_full_folder_name(leg_root, str(leg))
+    if leg_root is None:
+        return None
+    return f"{leg_root}/NAVIGATION/Bridge"
+
+
+BRIDGE_HEADER_SKIPROWS = 8
+_DMS_RE = re.compile(r"^\s*(\d+)\s*\xb0\s*(\d+(?:\.\d+)?)\s*'\s*([NSEW])\s*$")
+
+
+def _parse_dms(value) -> float:
+    """
+    Decimal degrees from a bridge-nav DMS string, e.g. "37\xb0 44.2464' N" or
+    "025\xb0 39.7979' W". Returns NaN for anything that doesn't match (blank
+    spacer rows, stray text), same as a failed numeric parse elsewhere in
+    this module.
+    """
+    if not isinstance(value, str):
+        return float("nan")
+    match = _DMS_RE.match(value)
+    if not match:
+        return float("nan")
+    degrees, minutes, hemisphere = match.groups()
+    dd = float(degrees) + float(minutes) / 60.0
+    return -dd if hemisphere in ("S", "W") else dd
+
+
+def _read_bridge_xlsx(path: str) -> pd.DataFrame:
+    """
+    One bridge-nav xlsx file's Time/Lat/Lon columns, past its metadata
+    header block (vessel name, from/to, total miles/avg speed) -- see
+    module docstring. BRIDGE_HEADER_SKIPROWS assumes every bridge export
+    shares that fixed layout; it's the one constant to adjust if a future
+    export shifts it.
+    """
+    raw = pd.read_excel(path, skiprows=BRIDGE_HEADER_SKIPROWS)
+    columns = {str(c).strip().lower(): c for c in raw.columns}
+    missing = {"time", "lat", "lon"} - set(columns)
+    if missing:
+        print(
+            f"      [GAP-FILL] Bridge file {path} missing column(s) {missing} after "
+            f"skiprows={BRIDGE_HEADER_SKIPROWS} (columns found: {list(raw.columns)})"
+        )
+        return pd.DataFrame(columns=POSITION_COLUMNS)
+
+    positions = pd.DataFrame({
+        "time": pd.to_datetime(raw[columns["time"]], format="%d/%m/%Y %H:%M", errors="coerce"),
+        "latitude_deg": raw[columns["lat"]].map(_parse_dms),
+        "longitude_deg": raw[columns["lon"]].map(_parse_dms),
+    })
+    # Bridge nav logs carry no explicit UTC offset in the timestamp string
+    # (just "08/07/2025 00:03"), unlike GGA/Ferrybox's own logging software --
+    # assumed already UTC (same assumption as EK80's echopype timestamps, see
+    # module docstring), just unlabeled. Localize (not convert).
+    positions["time"] = positions["time"].dt.tz_localize("UTC")
+    positions["source"] = "Bridge"
+    return positions.dropna(subset=["time", "latitude_deg", "longitude_deg"])[POSITION_COLUMNS]
+
+
+def extract_bridge_gap_positions(
+    bridge_folder: str | None,
+    gap_windows: list[tuple],
+) -> pd.DataFrame:
+    """
+    GPS positions from the ship's own bridge-navigation xlsx export --
+    last-resort gap-fill source, meant to be called only with whatever gap
+    windows EK80/Ferrybox left uncovered (see gap_windows_without_coverage).
+    Bridge files aren't run through the pipeline's usual raw-source
+    processing (no CSV combine/clean step); they're a manually-supplied nav
+    log read directly here (see _read_bridge_xlsx), for whichever legs the
+    bridge crew happened to export one for.
+    """
+    empty = pd.DataFrame(columns=POSITION_COLUMNS)
+
+    if not gap_windows:
+        return empty
+    if not bridge_folder or not os.path.isdir(bridge_folder):
+        print(f"      [GAP-FILL] Bridge input folder not found or missing: {bridge_folder!r}")
+        return empty
+
+    xlsx_files = sorted(Path(bridge_folder).glob("*.xlsx"))
+    if not xlsx_files:
+        print(f"      [GAP-FILL] No .xlsx files in {bridge_folder}")
+        return empty
+
+    frames = []
+    for path in xlsx_files:
+        try:
+            frames.append(_read_bridge_xlsx(str(path)))
+        except Exception as exc:
+            print(f"      [GAP-FILL] Could not read Bridge file {path}: {exc}")
+
+    frames = [f for f in frames if not f.empty]
+    if not frames:
+        return empty
+
+    positions = pd.concat(frames, ignore_index=True)
+    n_before_window_filter = len(positions)
+    positions = positions.loc[_in_any_window(positions["time"], gap_windows)]
+    if n_before_window_filter and positions.empty:
+        print(
+            f"      [GAP-FILL] Found {n_before_window_filter} Bridge position row(s) but none fall "
+            f"inside the gap window(s) {gap_windows} -- check Bridge file timestamps vs. gap times"
+        )
+    return positions.sort_values("time").reset_index(drop=True)
+
+
 def merge_gga_with_gap_fill(
     gga_df: pd.DataFrame,
     ek80_positions: pd.DataFrame | None,
     ferrybox_positions: pd.DataFrame | None,
+    bridge_positions: pd.DataFrame | None = None,
     time_col: str = "time",
 ) -> pd.DataFrame:
     """GGA positions plus whatever gap-window fill-in was found, tagged by source."""
@@ -358,7 +509,7 @@ def merge_gga_with_gap_fill(
     base[time_col] = pd.to_datetime(base[time_col], errors="coerce")
 
     parts = [base]
-    for extra in (ek80_positions, ferrybox_positions):
+    for extra in (ek80_positions, ferrybox_positions, bridge_positions):
         if extra is not None and not extra.empty:
             extra = extra.rename(columns={"time": time_col}).copy()
             extra[time_col] = pd.to_datetime(extra[time_col], errors="coerce")

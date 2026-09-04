@@ -12,6 +12,9 @@ from DataPipeline.gps_gap_fill import (
     find_gga_gaps,
     extract_ek80_gap_positions,
     extract_ferrybox_positions,
+    extract_bridge_gap_positions,
+    find_bridge_input_folder,
+    gap_windows_without_coverage,
     merge_gga_with_gap_fill,
     load_cached_merged_positions,
     gps_merged_sources_path,
@@ -155,13 +158,32 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
     ferrybox_positions = extract_ferrybox_positions(ferry_df, gap_windows)
     print(f"      [GAP-FILL] extract_ferrybox_positions returned: {len(ferrybox_positions)} row(s)")
 
+    # Bridge (ship's own nav log export) is last resort: only tried for
+    # whatever gap windows EK80/Ferrybox still leave open, never alongside
+    # them -- see gps_gap_fill module docstring.
+    remaining_gap_windows = gap_windows_without_coverage(gap_windows, ek80_positions, ferrybox_positions)
+    bridge_positions = None
+    if remaining_gap_windows:
+        print(
+            f"      [GAP-FILL] {len(remaining_gap_windows)} gap(s) still uncovered after EK80/Ferrybox; "
+            f"trying Bridge nav log (last resort)"
+        )
+        try:
+            bridge_folder = find_bridge_input_folder(cruise, current_leg)
+            bridge_positions = extract_bridge_gap_positions(bridge_folder, remaining_gap_windows)
+        except Exception as exc:
+            print(f"      [WARN] Could not load Bridge positions for gap-fill: {exc}")
+            bridge_positions = None
+        print(f"      [GAP-FILL] extract_bridge_gap_positions returned: {0 if bridge_positions is None else len(bridge_positions)} row(s)")
+
     print(f"      [GAP-FILL] gga_df: {len(gga_df)} row(s), dtype(time)={gga_df['time'].dtype}")
-    merged = merge_gga_with_gap_fill(gga_df, ek80_positions, ferrybox_positions)
+    merged = merge_gga_with_gap_fill(gga_df, ek80_positions, ferrybox_positions, bridge_positions)
     print(f"      [GAP-FILL] merged source counts: {merged['source'].value_counts().to_dict()}")
 
     n_ek80 = (merged["source"] == "EK80_gps").sum()
     n_ferrybox = (merged["source"] == "Ferrybox").sum()
-    print(f"      [GAP-FILL] added {n_ek80} EK80 fix(es), {n_ferrybox} Ferrybox fix(es) inside gaps")
+    n_bridge = (merged["source"] == "Bridge").sum()
+    print(f"      [GAP-FILL] added {n_ek80} EK80 fix(es), {n_ferrybox} Ferrybox fix(es), {n_bridge} Bridge fix(es) inside gaps")
 
     update_csv(merged, merged_path)
     _run_merged_gps_through_pipeline(merged, merged_path, current_leg, leg_start_end_path, sooguard_log_path)
