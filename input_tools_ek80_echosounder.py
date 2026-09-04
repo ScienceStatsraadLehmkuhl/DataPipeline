@@ -96,6 +96,22 @@ _PLATFORM_TIME_VARS = {
 # Per-file conversion + extraction
 # ---------------------------------------------------------------------------
 
+def _thin_to_1hz(block_df: pd.DataFrame, time_col: str = "timestamp") -> pd.DataFrame:
+    """Keep at most one row per second (first in time), dropping the rest.
+
+    Some Platform time coordinates log at tens-to-hundreds of Hz -- observed:
+    the secondary MRU position feed (time3) logging ~6.3M rows across just
+    49 files for one gap-fill pass. Nothing downstream uses sub-second
+    resolution (GGA's own rate is ~1Hz, and georeferencing's merge_asof
+    tolerance is 1s), so thinning here -- before the per-file CSV is even
+    written -- keeps conversion, the per-file CSV, and the eventual
+    full-leg combine step all proportionate to what's actually usable.
+    """
+    ts = pd.Series(block_df[time_col]).sort_values()
+    keep_idx = ts.index[~pd.to_datetime(ts).dt.floor("1s").duplicated(keep="first")]
+    return block_df.loc[keep_idx].sort_index()
+
+
 def _extract_easy_parameters(ed: "ep.echodata.EchoData", raw_filename: str) -> pd.DataFrame:
     """
     Pull the 'easy' parameters out of a converted EchoData object with no
@@ -110,6 +126,10 @@ def _extract_easy_parameters(ed: "ep.echodata.EchoData", raw_filename: str) -> p
     and the secondary position feed are independent streams sampled at
     different rates; forcing them onto one shared row per timestamp would
     mean inventing an alignment between them.
+
+    Each time_source block is thinned to at most 1 row/second (see
+    _thin_to_1hz) before being stacked -- some Platform streams log far
+    denser than that, and nothing downstream uses sub-second resolution.
 
     Environment values are usually static (or coarsely sampled) per file,
     so they're broadcast as constant columns across every row rather than
@@ -131,7 +151,7 @@ def _extract_easy_parameters(ed: "ep.echodata.EchoData", raw_filename: str) -> p
                 continue  # not actually indexed by this time coordinate; skip
             block[var] = values
         if len(block) > 2:  # has at least one variable beyond timestamp/time_source
-            blocks.append(pd.DataFrame(block))
+            blocks.append(_thin_to_1hz(pd.DataFrame(block)))
 
     df = (
         pd.concat(blocks, ignore_index=True)
@@ -167,30 +187,47 @@ def process_ek80_echosounder_raw_file(
     os.makedirs(csv_folder_name, exist_ok=True)
     raw_filename = Path(raw_file_path).stem
 
-    # Some raw files bundle a wideband ADCP (e.g. a CP300) as extra channels
-    # that echopype's EK80 parser cannot represent -- ep.open_raw() otherwise
-    # raises a KeyError building the Platform group. Those channels are
-    # extracted separately by input_tools_ek80_adcp.py.
-    with exclude_ek80_adcp_channels():
-        ed = ep.open_raw(raw_file_path, sonar_model=sonar_model)
+    # If this raw file was already converted to netCDF and that file is at
+    # least as fresh as the raw file, reuse it instead of re-parsing the raw
+    # file from scratch: open_raw() (decoding the proprietary Simrad binary
+    # format) is the expensive step; open_converted() just reads back
+    # already-decoded data, so this only skips redundant work -- it does not
+    # affect the netCDF's own content, which always keeps full original
+    # resolution (only the CSV extraction below is thinned).
+    ed = None
+    existing_nc_matches = glob.glob(os.path.join(nc_folder_name, f"{raw_filename}*.nc"))
+    if len(existing_nc_matches) == 1 and os.path.getmtime(existing_nc_matches[0]) >= os.path.getmtime(raw_file_path):
+        try:
+            ed = ep.open_converted(existing_nc_matches[0])
+        except Exception as exc:
+            print(f"      [WARN] Could not reuse existing netCDF for {raw_filename} ({exc}); reconverting from raw")
+            ed = None
 
-    # echopype writes each internal group (Environment, Platform, Sonar,
-    # Beam_group*...) as a separate reopen of the same .nc file. The
-    # gvfs/FUSE SMB mounts this pipeline writes to don't support reopening
-    # a file for append reliably -- it fails partway through with
-    # "OSError: [Errno -101] NetCDF: HDF error" (confirmed independent of
-    # HDF5's file-locking mode). Build the file on local disk, where
-    # reopening works fine, then copy the finished file over -- a plain
-    # byte copy has no such problem.
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        ed.to_netcdf(save_path=tmp_dir)
-        local_nc_files = glob.glob(os.path.join(tmp_dir, "*.nc"))
-        if len(local_nc_files) != 1:
-            raise RuntimeError(
-                f"Expected exactly one netCDF written for {raw_filename}, got {local_nc_files}"
-            )
-        nc_path = os.path.join(nc_folder_name, os.path.basename(local_nc_files[0]))
-        _copy_to_network_share_with_retry(local_nc_files[0], nc_path, nc_folder_name)
+    if ed is None:
+        # Some raw files bundle a wideband ADCP (e.g. a CP300) as extra channels
+        # that echopype's EK80 parser cannot represent -- ep.open_raw() otherwise
+        # raises a KeyError building the Platform group. Those channels are
+        # extracted separately by input_tools_ek80_adcp.py.
+        with exclude_ek80_adcp_channels():
+            ed = ep.open_raw(raw_file_path, sonar_model=sonar_model)
+
+        # echopype writes each internal group (Environment, Platform, Sonar,
+        # Beam_group*...) as a separate reopen of the same .nc file. The
+        # gvfs/FUSE SMB mounts this pipeline writes to don't support reopening
+        # a file for append reliably -- it fails partway through with
+        # "OSError: [Errno -101] NetCDF: HDF error" (confirmed independent of
+        # HDF5's file-locking mode). Build the file on local disk, where
+        # reopening works fine, then copy the finished file over -- a plain
+        # byte copy has no such problem.
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            ed.to_netcdf(save_path=tmp_dir)
+            local_nc_files = glob.glob(os.path.join(tmp_dir, "*.nc"))
+            if len(local_nc_files) != 1:
+                raise RuntimeError(
+                    f"Expected exactly one netCDF written for {raw_filename}, got {local_nc_files}"
+                )
+            nc_path = os.path.join(nc_folder_name, os.path.basename(local_nc_files[0]))
+            _copy_to_network_share_with_retry(local_nc_files[0], nc_path, nc_folder_name)
 
     df = _extract_easy_parameters(ed, raw_filename)
     csv_path = os.path.join(csv_folder_name, f"{raw_filename}.csv")

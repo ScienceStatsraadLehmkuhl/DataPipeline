@@ -40,6 +40,8 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, exp_folder
         f"      [GAP-FILL] {len(gap_windows)} GGA gap(s) > {GGA_GAP_FILL_THRESHOLD_MINUTES} min "
         f"in LEG {current_leg}; pulling positions from EK80/Ferrybox"
     )
+    for start, end in gap_windows:
+        print(f"      [GAP-FILL]   gap window: {start} -> {end}")
 
     (
         ek80_input_folder,
@@ -61,6 +63,15 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, exp_folder
     except Exception as exc:
         print(f"      [WARN] Could not load EK80 positions for gap-fill: {exc}")
         ek80_positions = None
+    if ek80_positions is None:
+        print("      [GAP-FILL] extract_ek80_gap_positions returned: None")
+    else:
+        time_dtype = ek80_positions["time"].dtype if len(ek80_positions) else "n/a"
+        source_values = ek80_positions["source"].unique().tolist() if len(ek80_positions) else []
+        print(
+            f"      [GAP-FILL] extract_ek80_gap_positions returned: {len(ek80_positions)} row(s), "
+            f"dtype(time)={time_dtype}, source values={source_values}"
+        )
 
     (
         ferry_input_folder,
@@ -76,17 +87,25 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, exp_folder
         ferry_raw_df = import_and_process_sources(
             ferry_input_folder, ferry_output_folder, ferry_exp_folder, ferry_output_file,
         )
+        print(
+            f"      [GAP-FILL] Ferrybox raw: {len(ferry_raw_df)} row(s); "
+            f"time/latitude/longitude sample: "
+            f"{ferry_raw_df[['time', 'latitude', 'longitude']].head(3).to_dict('records') if {'time', 'latitude', 'longitude'}.issubset(ferry_raw_df.columns) else 'columns missing'}"
+        )
         ferry_df = keep_and_rename(
-            ferry_raw_df, RENAME_COLUMNS["OCEANOGRAPHY"]["Ferrybox_CTD"], warn_missing=False,
+            ferry_raw_df, RENAME_COLUMNS["OCEANOGRAPHY"]["Ferrybox_CTD"], warn_missing=True,
         )
     except Exception as exc:
         print(f"      [WARN] Could not load Ferrybox positions for gap-fill: {exc}")
         ferry_df = None
     ferrybox_positions = extract_ferrybox_positions(ferry_df, gap_windows)
+    print(f"      [GAP-FILL] extract_ferrybox_positions returned: {len(ferrybox_positions)} row(s)")
 
+    print(f"      [GAP-FILL] gga_df: {len(gga_df)} row(s), dtype(time)={gga_df['time'].dtype}")
     merged = merge_gga_with_gap_fill(gga_df, ek80_positions, ferrybox_positions)
+    print(f"      [GAP-FILL] merged source counts: {merged['source'].value_counts().to_dict()}")
 
-    n_ek80 = merged["source"].isin(["EK80_gps", "EK80_mru_secondary"]).sum()
+    n_ek80 = (merged["source"] == "EK80_gps").sum()
     n_ferrybox = (merged["source"] == "Ferrybox").sum()
     print(f"      [GAP-FILL] added {n_ek80} EK80 fix(es), {n_ferrybox} Ferrybox fix(es) inside gaps")
 

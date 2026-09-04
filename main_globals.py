@@ -8,8 +8,8 @@
 CRUISE = "2025_2026_OOE2"
 
     ## leg
-#LEG = "14"    # To run only one leg
-LEG = None   # To run all legs
+LEG = "12"    # To run only one leg
+#LEG = None   # To run all legs
 
     #Processing? Plotting? both?
 MODE = "process"  # "process", "plot", or "both"
