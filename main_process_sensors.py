@@ -216,7 +216,10 @@ def run_processing(
         if isinstance(LEGS, (list, tuple, set)) and current_leg not in LEGS:
             print(f"[WARN] leg='{current_leg}' not found in LEGS (continuing anyway).")
 
-        experiments = EXPERIMENTS
+        # ACOUSTIC has its own pipeline (main_processing_acoustics.py): raw acoustic
+        # acquisition doesn't fit the generic zip/json/csv/cnv import this loop does
+        # for every other experiment.
+        experiments = [e for e in EXPERIMENTS if e != "ACOUSTIC"]
         if only_experiments is not None:
             experiments = [e for e in experiments if e in only_experiments]
 
@@ -233,14 +236,6 @@ def run_processing(
 
             for instrument in instruments:
                 print(f"   PROCESSING LEG {current_leg}: {instrument}")
-
-                if instrument == "EK80_echos_csv":
-                    # Not a generic CSV/zip/json import: raw EK80 sonar files need the
-                    # echopype-based conversion in main_processing_ek80_echosounder.py,
-                    # run separately (see its module docstring for why it's not folded
-                    # into this generic per-instrument loop).
-                    print(f"      [SKIP] {instrument} is processed separately (run_processing_ek80_echosounder)")
-                    continue
 
                 variables = get_variables(experiment, instrument)
                 if only_variables is not None:

@@ -1,5 +1,17 @@
 import os
+import sys
 import traceback
+from pathlib import Path
+
+# Bare imports below (not DataPipeline.xxx) so this module can still be run
+# standalone from inside DataPipeline/. Ensure this file's own directory is on
+# sys.path so the same bare imports also resolve when this module is instead
+# imported as DataPipeline.main_processing_ek80_adcp (e.g. from
+# DataPipeline.main_processing_acoustics) -- same fix as
+# DataPipeline/gap_analysis.py and DataPipeline/input_tools_ek80_echosounder.py.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
 from globals import LEGS
 from input_tools import input_folders_processer
@@ -13,10 +25,16 @@ ADCP_OUTPUT_SUBFOLDER = "EK80_CP300-ADCP"
 
 
 def run_processing_ek80_adcp(cruise, leg=None, sonar_model="EK80"):
+    """Convert the ADCP channels embedded in raw EK80 files to per-raw-file netCDFs.
+
+    Returns {leg: [written_netcdf_paths]} for legs that succeeded (failed legs
+    are omitted, matching the [ERROR]-and-continue behavior below).
+    """
     if cruise is None:
         raise ValueError("run_processing_ek80_adcp requires cruise to be provided.")
 
     legs = LEGS if leg is None else (leg if isinstance(leg, (list, tuple)) else [leg])
+    written_by_leg = {}
 
     for current_leg in legs:
         print(f"\n{'=' * 80}")
@@ -46,6 +64,7 @@ def run_processing_ek80_adcp(cruise, leg=None, sonar_model="EK80"):
                 f"      [OK] LEG {current_leg} EK80 ADCP netCDFs -> "
                 f"{len(written)} file(s) in {adcp_output_folder_name}"
             )
+            written_by_leg[current_leg] = written
         except Exception as exc:
             print(f"      [ERROR] Failed processing LEG {current_leg} EK80 ADCP:\n{exc}")
             traceback.print_exc()
@@ -54,6 +73,8 @@ def run_processing_ek80_adcp(cruise, leg=None, sonar_model="EK80"):
         print(f"\n{'-' * 33}")
         print(f"    FINISHED PROCESSING LEG {current_leg} EK80 ADCP")
         print(f"{'-' * 33}")
+
+    return written_by_leg
 
 
 if __name__ == "__main__":

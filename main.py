@@ -7,6 +7,7 @@ from DataPipeline.globals import LEGS
 from DataPipeline.cli import parse_args
 from DataPipeline.combine_dataset_new import combine_all_intervals
 from DataPipeline.gap_analysis import run_gap_analysis
+from DataPipeline.main_processing_acoustics import run_processing_acoustics
 
 
 if __name__ == "__main__":
@@ -34,6 +35,13 @@ if __name__ == "__main__":
                 only_instruments=args.only_instruments,
                 only_variables=args.only_variables,
             )
+
+    if args.run_acoustics and args.mode in ("process", "both"):
+        run_processing_acoustics(
+            cruise=args.cruise,
+            leg=args.leg,
+            only_acoustics=args.only_acoustics,
+        )
 
     if args.run_combine and args.mode in ("process", "both"):
         combine_all_intervals(

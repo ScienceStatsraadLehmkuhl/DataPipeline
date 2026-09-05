@@ -8,8 +8,8 @@
 CRUISE = "2025_2026_OOE2"
 
     ## leg
-#LEG = "27"    # To run only one leg
-LEG = ["21", "22", "23", "24", "25", "26", "27", "28", "29"]
+LEG = "19"    # To run only one leg
+#LEG = ["21", "22", "23", "24", "25", "26", "27", "28", "29"]
 #LEG = None   # To run all legs
 
     #Processing? Plotting? both?
@@ -18,6 +18,11 @@ MODE = "process"  # "process", "plot", or "both"
 ONLY_EXPERIMENTS = None   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"] ##Always pick navigation + other things
 ONLY_INSTRUMENTS =None   # e.g. ["Ferrybox_CTD"]
 ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
+
+    ## Acoustics (its own pipeline, run separately from "process sensors" above --
+    ## see main_processing_acoustics.py)
+RUN_ACOUSTICS = True
+ONLY_ACOUSTICS = None     # e.g. ["EK80_echos_csv"]; None = run every implemented acoustic source
 
     ## Combined-dataset intervals (used by combine_dataset_new.py)
 INTERVALS = ["1D", "1h", "5min"]    #add ["1D", "1h", "5min", "3min", "1min", "cleaned"]

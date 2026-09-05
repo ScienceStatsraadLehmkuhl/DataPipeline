@@ -4,9 +4,11 @@ from DataPipeline.main_globals import (
     DEFAULT_PLOT_TYPES,
     LEG,
     MODE,
+    ONLY_ACOUSTICS,
     ONLY_EXPERIMENTS,
     ONLY_INSTRUMENTS,
     ONLY_VARIABLES,
+    RUN_ACOUSTICS,
 )
 
 
@@ -27,7 +29,9 @@ def parse_args():
     parser.add_argument("--no-update", dest="update", action="store_false", help="Skip data update and use existing processed files.")
     parser.add_argument("--no-combine", dest="run_combine", action="store_false", default=True, help="Skip the dataset-combining step when running the main workflow.")
     parser.add_argument("--no-gap-analysis", dest="run_gap_analysis", action="store_false", default=True, help="Skip the gap analysis step when running the main workflow.")
+    parser.add_argument("--no-acoustics", dest="run_acoustics", action="store_false", default=RUN_ACOUSTICS, help="Skip the acoustics pipeline (EK80 etc.) when running the main workflow.")
     parser.add_argument("--only-experiments", nargs="+", default=ONLY_EXPERIMENTS, help="Filter to specific experiment names.")
     parser.add_argument("--only-instruments", nargs="+", default=ONLY_INSTRUMENTS, help="Filter to specific instrument names.")
     parser.add_argument("--only-variables", nargs="+", default=ONLY_VARIABLES, help="Filter to specific variable names.")
+    parser.add_argument("--only-acoustics", nargs="+", default=ONLY_ACOUSTICS, help="Filter to specific acoustic sources (e.g. EK80_echos_csv).")
     return parser.parse_args()

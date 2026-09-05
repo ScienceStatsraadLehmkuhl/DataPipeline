@@ -1,6 +1,17 @@
 import os
+import sys
 import traceback
 from pathlib import Path
+
+# Bare imports below (not DataPipeline.xxx) so this module can still be run
+# standalone from inside DataPipeline/. Ensure this file's own directory is on
+# sys.path so the same bare imports also resolve when this module is instead
+# imported as DataPipeline.main_processing_ek80_echosounder (e.g. from
+# DataPipeline.main_processing_acoustics) -- same fix as
+# DataPipeline/gap_analysis.py and DataPipeline/input_tools_ek80_echosounder.py.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
 from globals import LEGS
 from input_tools import input_folders_processer
@@ -17,10 +28,16 @@ ECHOSOUNDER_CSV_SUBFOLDER = "EK80_echos_csv"
 
 
 def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
+    """Convert raw EK80 echosounder files to a combined per-leg CSV.
+
+    Returns {leg: combined_csv_path} for legs that succeeded (failed legs are
+    omitted, matching the [ERROR]-and-continue behavior below).
+    """
     if cruise is None:
         raise ValueError("run_processing_ek80_echosounder requires cruise to be provided.")
 
     legs = LEGS if leg is None else (leg if isinstance(leg, (list, tuple)) else [leg])
+    combined_paths = {}
 
     for current_leg in legs:
         print(f"\n{'=' * 80}")
@@ -59,6 +76,7 @@ def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
                 sonar_model=sonar_model,
             )
             print(f"      [OK] LEG {current_leg} EK80 combined CSV -> {combined_path}")
+            combined_paths[current_leg] = combined_path
         except Exception as exc:
             print(f"      [ERROR] Failed processing LEG {current_leg} EK80 echosounder:\n{exc}")
             traceback.print_exc()
@@ -67,6 +85,8 @@ def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
         print(f"\n{'-' * 33}")
         print(f"    FINISHED PROCESSING LEG {current_leg} EK80 ECHOSOUNDER")
         print(f"{'-' * 33}")
+
+    return combined_paths
 
 
 if __name__ == "__main__":
