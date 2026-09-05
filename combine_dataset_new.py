@@ -9,10 +9,7 @@ import pandas as pd
 
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
 from DataPipeline.main_globals import CRUISE as DEFAULT_CRUISE
-from DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
-
-# ---- Intervals to process ----
-INTERVALS = ["1D", "1h", "5min", "3min", "1min"]    #add "cleaned" when it's really necessary
+from DataPipeline.main_globals import INTERVALS, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
 
 # ---- Paths ----
 PROCESSED_DATA_ROOT = Path(

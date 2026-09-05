@@ -2,7 +2,7 @@ LEGS = [str(x + 1) for x in range(30)]
 
 EXPERIMENTS = ["NAVIGATION",  "OCEANOGRAPHY", "ACOUSTIC", "METEOROLOGY", "RADIATION"]
 
-INSTRUMENTS = { "NAVIGATION": ["GGA", "HDT", "SXN23", "VTG", "ZDA"],
+INSTRUMENTS = { "NAVIGATION": ["GGA", "HDT", "SXN23", "VTG", "ZDA", "GPS-MERGED-SOURCES"],
                 "ACOUSTIC": ["EK80-RAW", "EK80_echos_csv", "EK80_echos_ncdf", "EK80_CP300-ADCP"],
                 "METEOROLOGY": ["GMX300", "GMX560", 'Lufft_WS100-1', 'Gill_2310037-WC76'], 
                 "OCEANOGRAPHY": ["Ferrybox_CTD", "Seabird_CTD"],

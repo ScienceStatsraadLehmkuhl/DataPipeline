@@ -32,8 +32,7 @@ A third, last-resort source -- "Bridge" -- is tried only for whatever gap
 windows EK80/Ferrybox still leave uncovered (see
 gap_windows_without_coverage). It comes from the ship's own bridge
 navigation software, manually exported to one xlsx file per covered leg
-under NAVIGATION/Bridge (sibling to SEAPATH, not nested under an
-instrument). Unlike every other source here, Bridge files are not raw
+under NAVIGATION/Bridge. Unlike every other source here, Bridge files are not raw
 instrument output run through the pipeline's usual combine/clean step --
 they're read directly in this module (see extract_bridge_gap_positions),
 since they exist purely to patch position gaps, not to be processed as an

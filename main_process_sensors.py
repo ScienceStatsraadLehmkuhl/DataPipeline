@@ -234,6 +234,14 @@ def run_processing(
             for instrument in instruments:
                 print(f"   PROCESSING LEG {current_leg}: {instrument}")
 
+                if instrument == "EK80_echos_csv":
+                    # Not a generic CSV/zip/json import: raw EK80 sonar files need the
+                    # echopype-based conversion in main_processing_ek80_echosounder.py,
+                    # run separately (see its module docstring for why it's not folded
+                    # into this generic per-instrument loop).
+                    print(f"      [SKIP] {instrument} is processed separately (run_processing_ek80_echosounder)")
+                    continue
+
                 variables = get_variables(experiment, instrument)
                 if only_variables is not None:
                     variables = [v for v in variables if v in only_variables]
