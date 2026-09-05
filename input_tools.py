@@ -238,7 +238,7 @@ def ensure_combined_csv(
 
 
 def load_combined_csv(combined_path: str) -> pd.DataFrame:
-    df = pd.read_csv(combined_path)
+    df = pd.read_csv(combined_path, low_memory=False)
     df = df.loc[:, ~df.columns.str.contains("^Unnamed")]  # drop unnamed columns
     return df
 

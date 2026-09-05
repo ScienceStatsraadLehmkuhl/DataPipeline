@@ -3,7 +3,7 @@ LEGS = [str(x + 1) for x in range(30)]
 EXPERIMENTS = ["NAVIGATION",  "OCEANOGRAPHY", "ACOUSTIC", "METEOROLOGY", "RADIATION"]
 
 INSTRUMENTS = { "NAVIGATION": ["GGA", "HDT", "SXN23", "VTG", "ZDA"],
-                "ACOUSTIC": ["EK80-RAW"],
+                "ACOUSTIC": ["EK80-RAW", "EK80_echos_csv", "EK80_echos_ncdf", "EK80_CP300-ADCP"],
                 "METEOROLOGY": ["GMX300", "GMX560", 'Lufft_WS100-1', 'Gill_2310037-WC76'], 
                 "OCEANOGRAPHY": ["Ferrybox_CTD", "Seabird_CTD"],
                 "RADIATION": ["Apogee_SI431", "Apogee_SQ522"], 
@@ -118,6 +118,24 @@ VARIABLES = {
             "immersion_factor",
             "solar_multiplier",
             "running_average",
+        ]
+    },
+    "ACOUSTIC": {
+        "EK80_echos_csv": [
+            "time_source",
+            "latitude",
+            "longitude",
+            "heading",
+            "pitch",
+            "roll",
+            "vertical_offset",
+            "latitude_mru1",
+            "longitude_mru1",
+            "env_temperature",
+            "env_salinity",
+            "env_sound_speed_indicative",
+            "source_raw_file",
+            "sonar_model",
         ]
     }
 }
@@ -305,6 +323,26 @@ RENAME_COLUMNS = {
             "immersion_factor": "immersion_factor",
             "solar_multiplier": "solar_multiplier",
             "running_average": "running_average",
+        },
+    },
+    "ACOUSTIC": {
+        "EK80_echos_csv": {
+            "timestamp": "timestamp",
+            "time": "time",
+            "time_source": "time_source",
+            "latitude": "latitude",
+            "longitude": "longitude",
+            "heading": "heading",
+            "pitch": "pitch",
+            "roll": "roll",
+            "vertical_offset": "vertical_offset",
+            "latitude_mru1": "latitude_mru1",
+            "longitude_mru1": "longitude_mru1",
+            "env_temperature": "env_temperature",
+            "env_salinity": "env_salinity",
+            "env_sound_speed_indicative": "env_sound_speed_indicative",
+            "source_raw_file": "source_raw_file",
+            "sonar_model": "sonar_model",
         },
     },
 }

@@ -12,7 +12,7 @@ from DataPipeline.gap_analysis import run_gap_analysis
 if __name__ == "__main__":
     args = parse_args()
 
-    legs_to_run = LEGS if args.leg is None else [args.leg]
+    legs_to_run = LEGS if args.leg is None else (args.leg if isinstance(args.leg, (list, tuple)) else [args.leg])
 
     for leg in legs_to_run:
         if args.mode in ("process", "both"):

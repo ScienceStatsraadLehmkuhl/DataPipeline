@@ -102,6 +102,18 @@ def from_csvs_to_csv(output_folder_name, output_file):
         # Append rows
         data_rows += df.to_dict(orient="records")
 
+    # Sort chronologically before writing, so the combined CSV is always
+    # time-ordered regardless of the order files were read from disk.
+    # Rows with missing/unparseable time are kept, sorted last. A plain
+    # key-sort (not a DataFrame round-trip) keeps every other column's
+    # value/formatting untouched.
+    if data_rows and "time" in keywords:
+        def _time_sort_key(row):
+            t = row.get("time")
+            return (pd.isna(t), t if pd.notna(t) else pd.Timestamp.min)
+
+        data_rows.sort(key=_time_sort_key)
+
     # Ensure output folder exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 

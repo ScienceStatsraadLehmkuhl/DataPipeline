@@ -466,7 +466,7 @@ def run_gap_analysis(
     combined_output_dir = cruise_dir / "combined_files"
     combined_output_dir.mkdir(parents=True, exist_ok=True)
 
-    legs_to_run = LEGS if leg is None else [leg]
+    legs_to_run = LEGS if leg is None else (leg if isinstance(leg, (list, tuple)) else [leg])
 
     all_gaps: list[pd.DataFrame] = []
     coverage_rows: list[dict] = []

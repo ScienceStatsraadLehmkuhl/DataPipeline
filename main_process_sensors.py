@@ -316,7 +316,7 @@ def run_processing(
 
 
 if __name__ == "__main__":
-    legs_to_run = LEGS if LEG is None else [LEG]
+    legs_to_run = LEGS if LEG is None else (LEG if isinstance(LEG, (list, tuple)) else [LEG])
     for leg in legs_to_run:
         run_processing(
             cruise=CRUISE,

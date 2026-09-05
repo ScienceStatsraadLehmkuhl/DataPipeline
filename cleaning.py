@@ -53,8 +53,10 @@ def pressure_removal_clean(
     out[pressure_col] = pd.to_numeric(out[pressure_col], errors="coerce")
     out = out.dropna(subset=[pressure_col])
 
-    if out[time_col].isna().any():
-        raise ValueError(f"'{time_col}' contains NaT values; cannot compute {buffer_minutes}-minute buffer.")
+    # Rows with an unparseable timestamp can't be placed in the buffer
+    # timeline (no valid ordering), so drop them the same way unparseable
+    # pressure values are dropped above.
+    out = out.dropna(subset=[time_col])
 
     # Defensive: callers are expected to pass data pre-sorted by time_col,
     # but the buffer computation below requires it.

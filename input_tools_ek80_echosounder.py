@@ -8,6 +8,7 @@ import os
 # be set before netCDF4/xarray/echopype touch the HDF5 library.
 os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
 
+import gc
 import glob
 import shutil
 import sys
@@ -29,6 +30,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 from input_tools_ek80_adcp import exclude_ek80_adcp_channels
+from preprocessing import add_canonical_time
 
 
 RELEVANT_INPUT_EXTS_EK80_ECHOSOUNDER = (".raw",)
@@ -230,8 +232,21 @@ def process_ek80_echosounder_raw_file(
             _copy_to_network_share_with_retry(local_nc_files[0], nc_path, nc_folder_name)
 
     df = _extract_easy_parameters(ed, raw_filename)
+    df = add_canonical_time(df)
     csv_path = os.path.join(csv_folder_name, f"{raw_filename}.csv")
     df.to_csv(csv_path, index=False)
+
+    # ed (echopype EchoData) wraps xarray/dask objects that commonly hold
+    # internal reference cycles, so its full-resolution echogram buffers --
+    # already discarded from df above, we only kept the small GPS/attitude
+    # columns -- aren't freed by refcounting alone the moment ed goes out of
+    # scope. Left to the cyclic GC's normal schedule, memory from multiple
+    # raw files piles up across the stale_files loop in
+    # ensure_ek80_echosounder_combined_csv faster than it's reclaimed,
+    # eventually OOM-killing the process. Force the collection here so each
+    # file's memory is released before the next one is opened.
+    del ed
+    gc.collect()
 
     return csv_path
 

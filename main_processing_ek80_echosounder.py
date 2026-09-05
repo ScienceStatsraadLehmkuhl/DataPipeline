@@ -19,7 +19,7 @@ def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
     if cruise is None:
         raise ValueError("run_processing_ek80_echosounder requires cruise to be provided.")
 
-    legs = LEGS if leg is None else [leg]
+    legs = LEGS if leg is None else (leg if isinstance(leg, (list, tuple)) else [leg])
 
     for current_leg in legs:
         print(f"\n{'=' * 80}")
