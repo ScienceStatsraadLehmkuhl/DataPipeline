@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from DataPipeline.main_globals import CRUISE, LEG
+from DataPipeline.main_globals import CRUISE, GAP_THRESHOLD_MINUTES, LEG
 from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
 
 TIMERS = {"exists_check": 0.0, "csv_read": 0.0, "parse_and_gaps": 0.0}
@@ -146,7 +146,7 @@ def analyze_gaps_for_file(
     leg: str,
     experiment: str,
     instrument: str,
-    threshold_minutes: float = 1.0,
+    threshold_minutes: float = GAP_THRESHOLD_MINUTES,
     leg_window: pd.Series | None = None,
     time_format: str | None = None,
     cache_dir: Path | None = None,
@@ -295,15 +295,22 @@ STATS_COLUMNS = [
     "median_gap_hours",
     "min_gap_minutes",
     "min_gap_hours",
+    "pct_of_leg_gap",
 ]
 
 
-def build_statistics(gaps_df: pd.DataFrame, coverage_df: pd.DataFrame) -> pd.DataFrame:
+def build_statistics(
+    gaps_df: pd.DataFrame, coverage_df: pd.DataFrame, leg_windows: pd.DataFrame
+) -> pd.DataFrame:
     """Build one summary row per leg / experiment / instrument.
 
     Every combo in coverage_df gets a row, even ones with no data at all -
     those get status="No data" and blank numeric columns, so they're
     distinguishable from a combo that had data but zero gaps (status="OK", n_gaps=0).
+
+    leg_windows supplies each leg's start/end (see load_leg_windows), used to
+    turn total_gap_minutes into pct_of_leg_gap = what fraction of the leg's
+    own duration was spent in a gap.
     """
     if gaps_df.empty:
         gap_stats = pd.DataFrame({
@@ -348,6 +355,14 @@ def build_statistics(gaps_df: pd.DataFrame, coverage_df: pd.DataFrame) -> pd.Dat
         gap_stats, on=["cruise", "leg", "experiment", "instrument"], how="left"
     )
 
+    # leg_windows keys legs as int; coverage_df/gaps_df carry leg as whatever
+    # string type iter_target_files used, so line them up on a string join key.
+    leg_durations = pd.DataFrame({
+        "leg": leg_windows["leg"].astype(str),
+        "leg_duration_minutes": (leg_windows["end"] - leg_windows["start"]).dt.total_seconds() / 60.0,
+    })
+    merged = merged.merge(leg_durations, on="leg", how="left")
+
     numeric_cols = [
         "n_gaps",
         "total_gap_minutes", "total_gap_hours",
@@ -355,11 +370,21 @@ def build_statistics(gaps_df: pd.DataFrame, coverage_df: pd.DataFrame) -> pd.Dat
         "mean_gap_minutes", "mean_gap_hours",
         "median_gap_minutes", "median_gap_hours",
         "min_gap_minutes", "min_gap_hours",
+        "pct_of_leg_gap",
     ]
     ok_mask = merged["status"] == "ok"
     # ok combos with no matching gap rows genuinely had zero gaps.
     for col in ["n_gaps", "total_gap_minutes", "total_gap_hours"]:
         merged.loc[ok_mask, col] = merged.loc[ok_mask, col].fillna(0)
+
+    # % of the leg's own duration spent in a gap; NaN (blank) if the leg
+    # window itself is unknown, e.g. leg missing from the logsheet.
+    merged["pct_of_leg_gap"] = np.nan
+    has_duration = ok_mask & merged["leg_duration_minutes"].notna() & (merged["leg_duration_minutes"] > 0)
+    merged.loc[has_duration, "pct_of_leg_gap"] = (
+        merged.loc[has_duration, "total_gap_minutes"] / merged.loc[has_duration, "leg_duration_minutes"] * 100
+    ).round(2)
+    merged = merged.drop(columns=["leg_duration_minutes"])
 
     # Cast to object dtype so "No data" (a string) can sit alongside numbers in the same column.
     for col in numeric_cols:
@@ -451,7 +476,7 @@ def _write_gap_workbook(path: Path, gaps_df: pd.DataFrame, stats_df: pd.DataFram
 def run_gap_analysis(
     cruise: str,
     leg: str | None = None,
-    threshold_minutes: float = 1.0,
+    threshold_minutes: float = GAP_THRESHOLD_MINUTES,
     time_format: str | None = None,
     cache_dir: Path | None = None,
 ) -> Path:
@@ -466,16 +491,25 @@ def run_gap_analysis(
     combined_output_dir = cruise_dir / "combined_files"
     combined_output_dir.mkdir(parents=True, exist_ok=True)
 
-    legs_to_run = LEGS if leg is None else (leg if isinstance(leg, (list, tuple)) else [leg])
+    leg_start_end_path, _ = get_logsheet_paths(cruise)
+    leg_windows = load_leg_windows(str(leg_start_end_path))
+
+    if leg is None:
+        # LEGS is a fixed 1-30 placeholder shared by every step in the
+        # pipeline; the logsheet's leg windows are the actual legs that
+        # exist for this cruise, so use those instead of running (and
+        # reporting "No data" for) every leg up to 30.
+        legs_to_run = [str(l) for l in sorted(leg_windows["leg"].unique())]
+    elif isinstance(leg, (list, tuple)):
+        legs_to_run = leg
+    else:
+        legs_to_run = [leg]
 
     all_gaps: list[pd.DataFrame] = []
     coverage_rows: list[dict] = []
     processed_files = 0
     found_gap_files = 0
     missing_files = 0
-
-    leg_start_end_path, _ = get_logsheet_paths(cruise)
-    leg_windows = load_leg_windows(str(leg_start_end_path))
 
     print(f"Gap analysis for '{cruise}': Threshold {threshold_minutes} minute(s)")
 
@@ -538,7 +572,7 @@ def run_gap_analysis(
 
         leg_gaps_df = pd.concat(leg_gap_frames, ignore_index=True) if leg_gap_frames else pd.DataFrame(columns=GAP_COLUMNS)
         leg_coverage_df = pd.DataFrame(leg_coverage_rows)
-        leg_stats_df = build_statistics(leg_gaps_df, leg_coverage_df)
+        leg_stats_df = build_statistics(leg_gaps_df, leg_coverage_df, leg_windows)
 
         leg_no_data_rows = _no_data_gap_rows(cruise, leg_stats_df, leg_windows)
         if not leg_no_data_rows.empty:
@@ -559,7 +593,7 @@ def run_gap_analysis(
         gaps_df = pd.DataFrame(columns=GAP_COLUMNS)
 
     coverage_df = pd.DataFrame(coverage_rows)
-    stats_df = build_statistics(gaps_df, coverage_df)
+    stats_df = build_statistics(gaps_df, coverage_df, leg_windows)
 
     combined_no_data_rows = _no_data_gap_rows(cruise, stats_df, leg_windows)
     if not combined_no_data_rows.empty:
@@ -583,7 +617,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze time gaps in the base processed CSV files.")
     parser.add_argument("--cruise", default=CRUISE, help="Cruise folder name under processed_data")
     parser.add_argument("--leg", default=LEG, help="Single leg to run. Omit / use None in settings to run all legs.")
-    parser.add_argument("--gap-threshold-minutes", type=float, default=1.0, help="Only report gaps larger than this threshold")
+    parser.add_argument(
+        "--gap-threshold-minutes",
+        type=float,
+        default=GAP_THRESHOLD_MINUTES,
+        help="Only report gaps larger than this threshold",
+    )
     parser.add_argument(
         "--time-format",
         default=None,

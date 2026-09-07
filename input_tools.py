@@ -96,21 +96,6 @@ def _has_output_csvs(folder: str) -> bool:
     )
 
 
-def _latest_mtime(folder, exts=None):
-    """Most recent mtime among files in `folder` (optionally filtered by
-    extension). Returns None if the folder doesn't exist or is empty."""
-    if not folder or not os.path.isdir(folder):
-        return None
-    mtimes = [
-        os.path.getmtime(os.path.join(folder, name))
-        for name in os.listdir(folder)
-        if os.path.isfile(os.path.join(folder, name))
-        and (exts is None or name.lower().endswith(exts))
-    ]
-    return max(mtimes) if mtimes else None
-
-
-
 def _stale_raw_files(input_folder_name, output_folder_name, extensions):
     """
     Return the list of raw filenames whose corresponding output CSV
@@ -164,75 +149,48 @@ def ensure_combined_csv(
     Ensure the combined CSV exists at exp_folder_name/output_file and
     reflects the latest raw inputs.
 
-    Rules:
-      1) Combined file exists AND no raw input is newer -> reuse it.
-      2) Else output_folder has CSVs AND none of them are older than the
-         raw inputs -> (re)combine those.
-      3) Else input_folder_name missing/has no relevant files -> raise.
-      4) Else rebuild per-file CSVs from input_folder_name, then combine.
+    Staleness is decided per raw file via _stale_raw_files (does this raw
+    file have a matching output CSV, and is that CSV at least as new as the
+    raw file?), not by comparing a single "latest mtime in the folder"
+    number against the combined file's mtime. Raw files landing on the
+    geomatics share can carry an old, original-recording mtime even when
+    they are genuinely new arrivals, so a single-number comparison can miss
+    them entirely -- per-file existence can't be fooled that way.
 
-    A raw file newer than an existing artifact means new data arrived
-    since that artifact was built -> treated as stale -> rebuilt.
+    Rules:
+      1) Combined file exists AND no raw file is missing/stale -> reuse it.
+      2) Else reprocess whichever raw files are missing/stale, then
+         (re)combine every per-file CSV in output_folder_name.
+      3) Else (no relevant raw inputs at all) fall back to whatever's
+         already in output_folder_name, or raise if there's nothing to
+         build from.
     """
     combined_path = os.path.join(exp_folder_name, output_file)
-    raw_mtime = _latest_mtime(input_folder_name, RELEVANT_INPUT_EXTS)
+    has_inputs = _has_relevant_inputs(input_folder_name)
+    stale_files = (
+        _stale_raw_files(input_folder_name, output_folder_name, RELEVANT_INPUT_EXTS)
+        if has_inputs else []
+    )
 
-    # 1) Reuse combined file only if at least as fresh as raw inputs.
-    if os.path.exists(combined_path):
-        if raw_mtime is None or os.path.getmtime(combined_path) >= raw_mtime:
+    # 1) Reuse combined file only if every raw file is already represented.
+    if os.path.exists(combined_path) and not stale_files:
+        return combined_path
+
+    if not has_inputs:
+        if os.path.exists(combined_path):
             return combined_path
-        # else: new raw data landed since this was built -> fall through
-
-    # 2) Reuse per-file CSVs only if at least as fresh as raw inputs.
-    if _has_output_csvs(output_folder_name):
-        output_mtime = _latest_mtime(output_folder_name, (".csv",))
-        if raw_mtime is None or (output_mtime is not None and output_mtime >= raw_mtime):
-            os.makedirs(exp_folder_name, exist_ok=True)
-            from_csvs_to_csv(output_folder_name, combined_path)
-            return combined_path
-
-        # 2b) Some raw files are newer -> reprocess only those, by filename pairing.
-        if _has_relevant_inputs(input_folder_name):
-            stale_files = _stale_raw_files(
-                input_folder_name, output_folder_name, RELEVANT_INPUT_EXTS
+        if not _has_output_csvs(output_folder_name):
+            raise FileNotFoundError(
+                f"         1. Combined file not found\n"
+                f"         2. No CSVs found in output folder to combine\n"
+                f"         3. Raw input folder missing or has no relevant files"
             )
-            if stale_files:
-                _process_raw_files(input_folder_name, output_folder_name, stale_files)
-            os.makedirs(exp_folder_name, exist_ok=True)
-            from_csvs_to_csv(output_folder_name, combined_path)
-            return combined_path
-        # else: fall through to rule 3/4
+    else:
+        os.makedirs(output_folder_name, exist_ok=True)
+        if stale_files:
+            _process_raw_files(input_folder_name, output_folder_name, stale_files)
 
-    # 3) No relevant raw inputs to (re)build from.
-    if not _has_relevant_inputs(input_folder_name):
-        raise FileNotFoundError(
-            f"         1. Combined file not found or stale\n"
-            f"         2. No fresh CSVs found in output folder to combine\n"
-            f"         3. Raw input folder missing or has no relevant files"
-        )
-
-    # 4) Rebuild everything from raw.
-    os.makedirs(output_folder_name, exist_ok=True)
     os.makedirs(exp_folder_name, exist_ok=True)
-
-
-    csvs_processed = False
-    for filename in os.listdir(input_folder_name):
-        filepath = os.path.join(input_folder_name, filename)
-        if not os.path.isfile(filepath):
-            continue
-
-        lower = filename.lower()
-        if lower.endswith(".zip"):
-            convert_zips_to_csvs(filepath, output_folder_name)
-        elif lower.endswith(".json"):
-            convert_jsons_to_csvs(input_folder_name, filepath, output_folder_name)
-        elif lower.endswith(".csv") and not csvs_processed:
-            copy_csv_files(input_folder_name, output_folder_name)
-            csvs_processed = True
-        elif lower.endswith(".cnv"):
-            convert_cnv_to_csv(input_folder_name, filename, output_folder_name)
-
     from_csvs_to_csv(output_folder_name, combined_path)
     return combined_path
 

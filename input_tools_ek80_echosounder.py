@@ -255,17 +255,6 @@ def process_ek80_echosounder_raw_file(
 # Leg-level staleness handling + combination
 # ---------------------------------------------------------------------------
 
-def _latest_mtime(folder, exts):
-    if not folder or not os.path.isdir(folder):
-        return None
-    mtimes = [
-        os.path.getmtime(os.path.join(folder, f))
-        for f in os.listdir(folder)
-        if f.lower().endswith(exts)
-    ]
-    return max(mtimes) if mtimes else None
-
-
 def _stale_raw_files(input_folder_name, csv_folder_name, exts):
     """Raw files with no matching per-file CSV yet, or newer than their CSV."""
     stale = []
@@ -289,26 +278,34 @@ def ensure_ek80_echosounder_combined_csv(
 ) -> str:
     """
     Ensure the leg-level combined EK80 CSV exists and reflects the latest
-    raw inputs. Same reuse/staleness philosophy as ensure_combined_csv:
+    raw inputs.
 
-      1) Combined file exists AND no raw .raw file is newer -> reuse it.
+    Staleness is decided per .raw file via _stale_raw_files (does this raw
+    file have a matching per-file CSV, and is that CSV at least as new as
+    the raw file?), not by comparing a single "latest mtime in the folder"
+    number against the combined file's mtime -- see ensure_combined_csv in
+    input_tools.py for why that single-number comparison can miss genuinely
+    new raw files whose mtime was preserved from original recording.
+
+      1) Combined file exists AND no raw .raw file is missing/stale -> reuse it.
       2) Else convert only the .raw files that are new/changed since their
          last per-file CSV was built (netCDF to nc_folder_name, CSV to
-         csv_folder_name -- one pair per raw file).
-      3) Combine all per-file CSVs in csv_folder_name into one leg-level
-         combined CSV.
+         csv_folder_name -- one pair per raw file), then combine all
+         per-file CSVs in csv_folder_name into one leg-level combined CSV.
     """
     combined_path = os.path.join(exp_folder_name, output_file)
-    raw_mtime = _latest_mtime(input_folder_name, RELEVANT_INPUT_EXTS_EK80_ECHOSOUNDER)
+    input_ok = bool(input_folder_name) and os.path.isdir(input_folder_name)
+    stale_files = (
+        _stale_raw_files(input_folder_name, csv_folder_name, RELEVANT_INPUT_EXTS_EK80_ECHOSOUNDER)
+        if input_ok else []
+    )
 
-    if os.path.exists(combined_path):
-        if raw_mtime is None or os.path.getmtime(combined_path) >= raw_mtime:
-            return combined_path
+    if os.path.exists(combined_path) and not stale_files:
+        return combined_path
 
-    if not input_folder_name or not os.path.isdir(input_folder_name):
+    if not input_ok:
         raise FileNotFoundError(f"EK80 input folder not found: {input_folder_name}")
 
-    stale_files = _stale_raw_files(input_folder_name, csv_folder_name, RELEVANT_INPUT_EXTS_EK80_ECHOSOUNDER)
     for filename in stale_files:
         raw_path = os.path.join(input_folder_name, filename)
         try:

@@ -225,11 +225,9 @@ def extract_ek80_gap_positions(
     raw_filenames = select_ek80_raw_files_for_gaps(input_folder_name, gap_windows)
     if not raw_filenames:
         print(
-            f"      [GAP-FILL] No .raw files in {input_folder_name} overlap gap window(s) {gap_windows} "
-            f"(by filename timestamp) -- EK80 may not have been recording during these gaps"
-        )
+            f"      [GAP-FILL] No .raw files in {input_folder_name} overlap gap window(s) {gap_windows} ")
         return empty
-    print(f"      [GAP-FILL] {len(raw_filenames)} EK80 .raw file(s) selected for gap-fill: {raw_filenames}")
+    print(f"      [GAP-FILL] {len(raw_filenames)} EK80 file(s) selected for gap-fill")
 
     os.makedirs(nc_folder_name, exist_ok=True)
     os.makedirs(csv_folder_name, exist_ok=True)
