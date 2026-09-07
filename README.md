@@ -181,7 +181,7 @@ The normal workflow is:
 - `cli.py`: command-line argument parsing
 - `main_process_sensors.py`: per-leg processing
 - `preprocessing.py`: timestamp normalization and resampling
-- `cleaning.py`: sensor-specific cleaning rules
+- `cleaning_Ferrybox.py`: sensor-specific cleaning rules
 - `combine_dataset_new.py`: cruise-wide data combination
 - `main_plot.py`: per-leg and expedition plotting orchestration
 - `plot_expedition_report.py`: expedition-length plots

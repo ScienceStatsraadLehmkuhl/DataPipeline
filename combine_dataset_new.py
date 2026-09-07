@@ -123,7 +123,7 @@ def combine_one_experiment_instrument(experiment: str, instrument: str, interval
     if df.empty:
         return None
 
-    out_file = out_folder / f"{experiment}_{instrument}_{interval}_COMBINED.csv"
+    out_file = out_folder / f"{resolve_cruise(cruise)}_{experiment}_{instrument}_{interval}_COMBINED.csv"
 
     with open(out_file, "w", newline="") as f:
         df.to_csv(f, index=False)

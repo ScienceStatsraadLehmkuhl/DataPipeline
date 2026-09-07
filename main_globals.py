@@ -23,9 +23,9 @@ Sections:
 CRUISE = "2025_2026_OOE2"
 
 ## Leg(s) to run
-#LEG = "17"          # run only one leg
+LEG = "11"          # run only one leg
 #LEG = ["22", "23", "24"]   # run a specific list of legs
-LEG = None          # run all legs
+#LEG = None          # run all legs
 
 
 # ============================================================
@@ -37,7 +37,7 @@ MODE = "both"  # "process", "plot", or "both"
 
 ## Filters on what gets run (None = no filter, i.e. run everything)
 ONLY_EXPERIMENTS = None   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"]; navigation is always included
-ONLY_INSTRUMENTS = None   # e.g. ["Ferrybox_CTD"]
+ONLY_INSTRUMENTS = ["Ferrybox_CTD"]   # e.g. ["Ferrybox_CTD"]
 ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
 
 
@@ -46,8 +46,8 @@ ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
 # see main_processing_acoustics.py)
 # ============================================================
 
-RUN_ACOUSTICS = True       # whether to run the acoustics pipeline at all
-ONLY_ACOUSTICS = None      # e.g. ["EK80_echos_csv"]; None = run every implemented acoustic source
+RUN_ACOUSTICS = False       # whether to run the acoustics pipeline at all
+ONLY_ACOUSTICS = None       # e.g. ["EK80_echos_csv"]; None = run every implemented acoustic source
 
 
 # ============================================================
@@ -77,3 +77,11 @@ GGA_GAP_FILL_THRESHOLD_MINUTES = 5   # GGA gaps larger than this trigger EK80/Fe
 
 ## Gap analysis (gap_analysis.py)
 GAP_THRESHOLD_MINUTES = 5   # only report gaps larger than this threshold
+
+## Ferrybox spike removal (hampel_spike_clean in cleaning_Ferrybox.py):
+## a Hampel filter that blanks single/few-point spikes by comparing each
+## point to a rolling median computed from its local time neighborhood.
+HAMPEL_WINDOW_MINUTES = 10   # width of the centered time window (in minutes) used to compute
+                              # the local rolling median/MAD that each point is judged against
+HAMPEL_N_SIGMAS = 3.0        # a point is blanked if it's more than this many scaled-MADs
+                              # (MAD-based equivalent of "standard deviations") from that window's median

@@ -116,7 +116,9 @@ def find_gga_gaps(
     as the standalone gap-analysis report, just called directly in-memory
     (no workbook written for GGA here).
 
-    Every gap_type (start / internal / end) counts.
+    Every gap_type (start / internal / end) counts, except an "end" gap
+    whose current_time (the leg's declared end) hasn't happened yet -- see
+    _is_future_end_gap.
     """
     leg_windows = load_leg_windows(str(leg_start_end_path))
     leg_window_rows = leg_windows.loc[leg_windows["leg"] == int(leg)]
@@ -134,10 +136,33 @@ def find_gga_gaps(
     if gaps_df.empty:
         return []
 
-    return [
-        (row["previous_time"], row["current_time"])
-        for _, row in gaps_df.iterrows()
-    ]
+    windows = []
+    for _, row in gaps_df.iterrows():
+        if _is_future_end_gap(row):
+            print(
+                f"      [GAP-FILL] Skipping 'end' gap in LEG {leg} -- leg end "
+                f"{row['current_time']} hasn't happened yet, data just isn't there yet"
+            )
+            continue
+        windows.append((row["previous_time"], row["current_time"]))
+    return windows
+
+
+def _is_future_end_gap(gap_row: pd.Series) -> bool:
+    """
+    True for an "end"-type gap (see analyze_gaps_for_file) whose
+    current_time -- the leg's declared end, from the logsheet -- is still in
+    the future. That's not a real gap to fill: the leg simply hasn't
+    finished yet, so of course there's no GGA data all the way up to the
+    logsheet's end time. Only "end" gaps can look like this; "start" and
+    "internal" gaps are always bounded by data that has already happened.
+    """
+    if gap_row.get("gap_type") != "end":
+        return False
+    current_time = gap_row.get("current_time")
+    if pd.isna(current_time):
+        return False
+    return pd.Timestamp(current_time) > pd.Timestamp.now(tz="UTC")
 
 
 def _parse_ek80_filename_time(filename: str) -> pd.Timestamp | None:
@@ -308,7 +333,14 @@ def extract_ferrybox_positions(
     gap_windows: list[tuple],
     time_col: str = "time",
 ) -> pd.DataFrame:
-    """GPS positions from Ferrybox's own lat/lon columns, inside gap windows only."""
+    """
+    GPS positions from Ferrybox's own lat/lon columns, inside gap windows only.
+
+    `ferrybox_df`'s canonical `time_col` is expected to already be built
+    from the right source column upstream (see
+    globals.PREFERRED_TIME_COLUMN / preprocessing.ensure_time) -- this
+    function just consumes it.
+    """
     empty = pd.DataFrame(columns=POSITION_COLUMNS)
 
     if not gap_windows:
@@ -326,7 +358,11 @@ def extract_ferrybox_positions(
     positions = ferrybox_df[[time_col, "latitude", "longitude"]].rename(
         columns={time_col: "time", "latitude": "latitude_deg", "longitude": "longitude_deg"}
     ).copy()
-    positions["time"] = pd.to_datetime(positions["time"], errors="coerce")
+    # utc=True guards against a naive 'time' dtype reaching _in_any_window's
+    # comparison against the (tz-aware) gap windows below -- see the
+    # "Invalid comparison between dtype=datetime64[ns] and Timestamp" crash
+    # this replaced.
+    positions["time"] = pd.to_datetime(positions["time"], errors="coerce", utc=True)
     n_raw_rows = len(positions)
     positions = positions.dropna(subset=["time", "latitude_deg", "longitude_deg"])
     if n_raw_rows and positions.empty:

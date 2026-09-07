@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import numpy as np
 from DataPipeline.input_tools import *
-from DataPipeline.cleaning import cleaning
+from DataPipeline.cleaning_Ferrybox import cleaning
 
 from DataPipeline.globals import RENAME_COLUMNS
 from DataPipeline.preprocessing import TIME_ALIAS

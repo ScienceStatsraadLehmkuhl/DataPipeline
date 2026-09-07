@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, get_variables
+from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, PREFERRED_TIME_COLUMN, get_variables
 from DataPipeline.input_tools import import_and_process_sources, input_folders_processer, update_csv
 from DataPipeline.data_processing_sensors import data_process, keep_and_rename
 from DataPipeline.manual_data_read import get_logsheet_paths
@@ -143,20 +143,21 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
     try:
         ferry_raw_df = import_and_process_sources(
             ferry_input_folder, ferry_output_folder, ferry_exp_folder, ferry_output_file,
+            preferred_time_col=PREFERRED_TIME_COLUMN.get("Ferrybox_CTD"),
         )
         print(
-            f"      [GAP-FILL] Ferrybox raw: {len(ferry_raw_df)} row(s); "
-            f"time/latitude/longitude sample: "
-            f"{ferry_raw_df[['time', 'latitude', 'longitude']].head(3).to_dict('records') if {'time', 'latitude', 'longitude'}.issubset(ferry_raw_df.columns) else 'columns missing'}"
-        )
+            f"      [GAP-FILL] Ferrybox raw: {len(ferry_raw_df)} row(s); ")
         ferry_df = keep_and_rename(
             ferry_raw_df, RENAME_COLUMNS["OCEANOGRAPHY"]["Ferrybox_CTD"], warn_missing=True,
         )
+        ferrybox_positions = extract_ferrybox_positions(ferry_df, gap_windows)
     except Exception as exc:
         print(f"      [WARN] Could not load Ferrybox positions for gap-fill: {exc}")
-        ferry_df = None
-    ferrybox_positions = extract_ferrybox_positions(ferry_df, gap_windows)
-    print(f"      [GAP-FILL] extract_ferrybox_positions returned: {len(ferrybox_positions)} row(s)")
+        ferrybox_positions = None
+    if ferrybox_positions is None:
+        print("      [GAP-FILL] extract_ferrybox_positions returned: None")
+    else:
+        print(f"      [GAP-FILL] extract_ferrybox_positions returned: {len(ferrybox_positions)} row(s)")
 
     # Bridge (ship's own nav log export) is last resort: only tried for
     # whatever gap windows EK80/Ferrybox still leave open, never alongside
@@ -176,7 +177,7 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
             bridge_positions = None
         print(f"      [GAP-FILL] extract_bridge_gap_positions returned: {0 if bridge_positions is None else len(bridge_positions)} row(s)")
 
-    print(f"      [GAP-FILL] gga_df: {len(gga_df)} row(s), dtype(time)={gga_df['time'].dtype}")
+    print(f"      [GAP-FILL] gga_df: {len(gga_df)} row(s)")
     merged = merge_gga_with_gap_fill(gga_df, ek80_positions, ferrybox_positions, bridge_positions)
     print(f"      [GAP-FILL] merged source counts: {merged['source'].value_counts().to_dict()}")
 
@@ -227,6 +228,15 @@ def run_processing(
             print(f"\nPROCESSING LEG {current_leg}: {experiment}")
 
             instruments = INSTRUMENTS.get(experiment, [])
+            # GPS-MERGED-SOURCES isn't a raw instrument -- it's the derived
+            # product _apply_gga_gap_fill/_run_merged_gps_through_pipeline
+            # already builds (and cleans) as part of processing GGA above.
+            # Letting it flow through this generic loop too would reload
+            # that same file and geotag it against itself (gga_df is
+            # already set by the time this loop reaches it), silently
+            # dropping the 'source' column into an otherwise-unused
+            # "_geotag_cleaned" file set.
+            instruments = [i for i in instruments if i != "GPS-MERGED-SOURCES"]
             if only_instruments is not None:
                 instruments = [i for i in instruments if i in only_instruments]
 
@@ -267,6 +277,7 @@ def run_processing(
                         _output_folder_name,
                         exp_folder_name,
                         output_file,
+                        preferred_time_col=PREFERRED_TIME_COLUMN.get(instrument),
                     )
 
                     combined_path = os.path.join(exp_folder_name, output_file)  # NEW: same join ensure_combined_csv uses

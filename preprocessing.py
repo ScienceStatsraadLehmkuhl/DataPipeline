@@ -10,15 +10,25 @@ from DataPipeline.fileformatconversion import get_time_from_filename
 TIME_ALIAS = ["System Date and Time","timestamp", "Timestamp", "NMEA_UTC_(Time)"]
 
 
-def add_canonical_time(df, *, utc=True, dayfirst=False):
+def add_canonical_time(df, *, utc=True, dayfirst=False, preferred_time_col=None):
     """
-    Find a timestamp column using TIME_ALIAS, preserve any existing 'time'
-    column by renaming it, and always add a canonical 'time' column.
+    Find a timestamp column and always add a canonical 'time' column,
+    preserving any existing 'time' column by renaming it first.
+
+    `preferred_time_col`, when given and present in df.columns, is used
+    as-is instead of searching TIME_ALIAS -- for sources with more than one
+    candidate timestamp column (e.g. Ferrybox, see
+    globals.PREFERRED_TIME_COLUMN), TIME_ALIAS's generic priority order
+    can't be trusted to pick the one that's actually authoritative for that
+    source.
     """
     df = df.copy()
 
     # 1. Find timestamp source FIRST
-    time_col = next((col for col in TIME_ALIAS if col in df.columns), None)
+    if preferred_time_col is not None and preferred_time_col in df.columns:
+        time_col = preferred_time_col
+    else:
+        time_col = next((col for col in TIME_ALIAS if col in df.columns), None)
     if time_col is None:
         print("Warning: No timestamp column found. Skipping canonical time.")
         return df
@@ -44,7 +54,13 @@ def add_canonical_time(df, *, utc=True, dayfirst=False):
         unit = "ms" if med > 1e11 else "s"
         dt = pd.to_datetime(s, unit=unit, utc=utc, errors="coerce")
     else:
-        dt = pd.to_datetime(s, utc=utc, errors="coerce", dayfirst=dayfirst)
+        try:
+            # Fast path: handles ISO 8601 strings with varying precision/
+            # timezone suffix (e.g. Ferrybox XML timestamps) without
+            # falling back to per-row dateutil parsing.
+            dt = pd.to_datetime(s, utc=utc, errors="raise", format="ISO8601")
+        except (ValueError, TypeError):
+            dt = pd.to_datetime(s, utc=utc, errors="coerce", dayfirst=dayfirst)
 
     # 4. Always add canonical time
     df["time"] = dt
@@ -52,19 +68,23 @@ def add_canonical_time(df, *, utc=True, dayfirst=False):
     return df
 
 
-def ensure_time(df, filename):
+def ensure_time(df, filename, preferred_time_col=None):
     """
     Ensure the DataFrame has a canonical 'time' column.
     If no timestamp column exists, create one from the filename first.
     """
-    if not any(col in df.columns for col in TIME_ALIAS):
+    has_known_time_source = (
+        (preferred_time_col is not None and preferred_time_col in df.columns)
+        or any(col in df.columns for col in TIME_ALIAS)
+    )
+    if not has_known_time_source:
         df = df.copy()
         df["timestamp"] = get_time_from_filename(filename, len(df))
 
-    return add_canonical_time(df)
+    return add_canonical_time(df, preferred_time_col=preferred_time_col)
 
 
-def from_csvs_to_csv(output_folder_name, output_file):
+def from_csvs_to_csv(output_folder_name, output_file, preferred_time_col=None):
     """
     Combine multiple CSVs into one, adding canonical time where possible.
     """
@@ -84,7 +104,7 @@ def from_csvs_to_csv(output_folder_name, output_file):
 
         # Add canonical time if possible
         try:
-            df = ensure_time(df, os.path.join(output_folder_name, filecsv))
+            df = ensure_time(df, os.path.join(output_folder_name, filecsv), preferred_time_col=preferred_time_col)
 
             # Sync keywords with whatever columns ensure_time/add_canonical_time produced
             for col in df.columns:
@@ -125,54 +145,3 @@ def from_csvs_to_csv(output_folder_name, output_file):
 
     print(f"      Successfully wrote {len(data_rows)} records")
 
-
-
-
-
-
-
-# def from_csvs_to_csv(output_folder_name, output_file):
-#     """
-#     Combine multiple CSVs into one, adding canonical time where possible.
-#     """
-#     data_rows, keywords = [], []
-
-#     for filecsv in os.listdir(output_folder_name):
-#         if not filecsv.endswith(".csv"):
-#             continue
-
-#         # Read CSV as list of dicts
-#         data_row, file_keywords = read_csv(os.path.join(output_folder_name, filecsv))
-#         if not data_row:
-#             continue
-
-#         # Convert to DataFrame
-#         df = pd.DataFrame(data_row)
-
-#         # Add canonical time if possible
-#         try:
-#             df = add_canonical_time(df)
-#             # Ensure 'time' is in the keywords for CSV writing
-#             if "time" not in file_keywords:
-#                 file_keywords.append("time")
-#         except KeyError:
-#             pass
-
-#         # Update global keywords
-#         for k in file_keywords:
-#             if k not in keywords:
-#                 keywords.append(k)
-
-#         # Append rows
-#         data_rows += df.to_dict(orient="records")
-
-#     # Ensure output folder exists
-#     os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
-#     # Write combined CSV
-#     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-#         writer = csv.DictWriter(csvfile, fieldnames=keywords)
-#         writer.writeheader()
-#         writer.writerows(data_rows)
-
-#     print(f"      Successfully wrote {len(data_rows)} records")

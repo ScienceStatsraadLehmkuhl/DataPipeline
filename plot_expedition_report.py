@@ -28,7 +28,7 @@ def expedition_figures_root(cruise: str | None = None) -> Path:
 
 
 def combined_csv_path(experiment: str, instrument: str, interval: str = EXPEDITION_INTERVAL, cruise: str | None = None) -> Path:
-    return combined_output_folder(interval, cruise=cruise) / f"{experiment}_{instrument}_{interval}_COMBINED.csv"
+    return combined_output_folder(interval, cruise=cruise) / f"{resolve_cruise(cruise)}_{experiment}_{instrument}_{interval}_COMBINED.csv"
 
 
 def plot_expedition_report(

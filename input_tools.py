@@ -144,6 +144,7 @@ def ensure_combined_csv(
     output_folder_name: str,
     exp_folder_name: str,
     output_file: str,
+    preferred_time_col: str | None = None,
 ):
     """
     Ensure the combined CSV exists at exp_folder_name/output_file and
@@ -191,7 +192,7 @@ def ensure_combined_csv(
             _process_raw_files(input_folder_name, output_folder_name, stale_files)
 
     os.makedirs(exp_folder_name, exist_ok=True)
-    from_csvs_to_csv(output_folder_name, combined_path)
+    from_csvs_to_csv(output_folder_name, combined_path, preferred_time_col=preferred_time_col)
     return combined_path
 
 
@@ -206,11 +207,13 @@ def import_and_process_sources(
     output_folder_name: str,
     exp_folder_name: str,
     output_file: str,
+    preferred_time_col: str | None = None,
 ) -> pd.DataFrame:
     combined_path = ensure_combined_csv(
         input_folder_name=input_folder_name,
         output_folder_name=output_folder_name,
         exp_folder_name=exp_folder_name,
         output_file=output_file,
+        preferred_time_col=preferred_time_col,
     )
     return load_combined_csv(combined_path)

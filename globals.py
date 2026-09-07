@@ -4,10 +4,19 @@ EXPERIMENTS = ["NAVIGATION",  "OCEANOGRAPHY", "ACOUSTIC", "METEOROLOGY", "RADIAT
 
 INSTRUMENTS = { "NAVIGATION": ["GGA", "HDT", "SXN23", "VTG", "ZDA", "GPS-MERGED-SOURCES"],
                 "ACOUSTIC": ["EK80-RAW", "EK80_echos_csv", "EK80_echos_ncdf", "EK80_CP300-ADCP"],
-                "METEOROLOGY": ["GMX300", "GMX560", 'Lufft_WS100-1', 'Gill_2310037-WC76'], 
+                "METEOROLOGY": ["GMX300", "GMX560", 'Lufft_WS100-1', 'Gill_2310037-WC76'],
                 "OCEANOGRAPHY": ["Ferrybox_CTD", "Seabird_CTD"],
-                "RADIATION": ["Apogee_SI431", "Apogee_SQ522"], 
+                "RADIATION": ["Apogee_SI431", "Apogee_SQ522"],
                 }
+
+# Some instruments' raw data carries more than one candidate timestamp
+# column (e.g. Ferrybox's Aanderaa/SmartGuard export has both a root-level
+# 'timestamp'/record-received time and a per-measurement 'dataTimestamp');
+# this pins which one is authoritative for canonical 'time', overriding
+# preprocessing.TIME_ALIAS's generic priority order for that instrument.
+PREFERRED_TIME_COLUMN = {
+    "Ferrybox_CTD": "dataTimestamp",
+}
 
 VARIABLES = {   
     "NAVIGATION": {
@@ -16,6 +25,7 @@ VARIABLES = {
             "SXN23": ["heading", "heave","pitch","roll"],
             "VTG": ["course_over_ground_deg_mag", "course_over_ground_deg_true", "speed_over_ground_kt"],
             "ZDA":[],
+            "GPS-MERGED-SOURCES": ["longitude_deg", "latitude_deg"]
         },
 
     "METEOROLOGY": {
@@ -153,6 +163,12 @@ RENAME_COLUMNS = {
             "longitude_degrees": "longitude_deg",
             "latitude_degrees": "latitude_deg",
         },
+        "GPS-MERGED-SOURCES": {
+            "time": "time", 
+            "longitude_deg": "longitude_deg", 
+            "latitude_deg": "latitude_deg"
+        },
+
         "HDT":{
             "Timestamp":"Timestamp",
             '"Heading, degrees true"': "heading_deg_true",
