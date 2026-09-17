@@ -21,7 +21,6 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 
-
 GAP_COLUMNS = [
     "cruise",
     "leg",
@@ -473,6 +472,25 @@ def _write_gap_workbook(path: Path, gaps_df: pd.DataFrame, stats_df: pd.DataFram
         _strip_tz_for_excel(stats_df).to_excel(writer, sheet_name="statistics", index=False)
 
 
+def _load_combined_from_leg_outputs(cruise_dir: Path, cruise: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Combine every leg workbook already saved under cruise_dir, not just the leg(s) this run processed.
+
+    This way the combined workbook always reflects every LEG*/ folder on
+    disk, even when a single run only (re)analyzed one leg.
+    """
+    leg_files = sorted(cruise_dir.glob(f"LEG*/{cruise}_LEG*_gap_analysis.xlsx"))
+
+    gap_frames = []
+    stats_frames = []
+    for path in leg_files:
+        gap_frames.append(pd.read_excel(path, sheet_name="gaps"))
+        stats_frames.append(pd.read_excel(path, sheet_name="statistics"))
+
+    gaps_df = pd.concat(gap_frames, ignore_index=True) if gap_frames else pd.DataFrame(columns=GAP_COLUMNS)
+    stats_df = pd.concat(stats_frames, ignore_index=True) if stats_frames else pd.DataFrame(columns=STATS_COLUMNS)
+    return gaps_df, stats_df
+
+
 def run_gap_analysis(
     cruise: str,
     leg: str | None = None,
@@ -505,8 +523,6 @@ def run_gap_analysis(
     else:
         legs_to_run = [leg]
 
-    all_gaps: list[pd.DataFrame] = []
-    coverage_rows: list[dict] = []
     processed_files = 0
     found_gap_files = 0
     missing_files = 0
@@ -582,25 +598,11 @@ def run_gap_analysis(
         print(f"Writing leg {leg} results to {leg_path}")
         _write_gap_workbook(leg_path, leg_gaps_df, leg_stats_df)
 
-        # Keep every leg's data around too, for the combined workbook at the end.
-        if leg_gap_frames:
-            all_gaps.extend(leg_gap_frames)
-        coverage_rows.extend(leg_coverage_rows)
+    # Combined workbook covers every LEG*/ workbook found on disk, not just the
+    # leg(s) this run processed, so running a single leg still refreshes the
+    # combined file with everyone else's already-saved results.
+    gaps_df, stats_df = _load_combined_from_leg_outputs(cruise_dir, cruise)
 
-    if all_gaps:
-        gaps_df = pd.concat(all_gaps, ignore_index=True)
-    else:
-        gaps_df = pd.DataFrame(columns=GAP_COLUMNS)
-
-    coverage_df = pd.DataFrame(coverage_rows)
-    stats_df = build_statistics(gaps_df, coverage_df, leg_windows)
-
-    combined_no_data_rows = _no_data_gap_rows(cruise, stats_df, leg_windows)
-    if not combined_no_data_rows.empty:
-        gaps_df = pd.concat([gaps_df, combined_no_data_rows], ignore_index=True)
-
-    # Combined workbook across all legs, in the existing combined_files/ folder.
-    # This one still has to wait until every leg is done, since it needs all of them.
     output_path = combined_output_dir / f"{cruise}_gap_analysis.xlsx"
     print(f"Writing combined results to {output_path}")
     _write_gap_workbook(output_path, gaps_df, stats_df)
@@ -651,6 +653,7 @@ def main() -> None:
 
     output_path = run_gap_analysis(
         args.cruise,
+        leg=args.leg,
         threshold_minutes=args.gap_threshold_minutes,
         time_format=args.time_format,
         cache_dir=cache_dir,

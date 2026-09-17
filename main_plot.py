@@ -82,7 +82,11 @@ def run_plotting(
                     print(f"      [SKIP] No variables configured for {experiment}/{instrument}")
                     continue
 
-                paths = load_processed_frame(current_leg, experiment, instrument, cruise=cruise)
+                try:
+                    paths = load_processed_frame(current_leg, experiment, instrument, cruise=cruise)
+                except Exception as e:
+                    print(f"      [SKIP] Could not resolve folders for {experiment}/{instrument}: {e}")
+                    continue
                 exp_folder = paths.get("exp_folder_name")
                 if not exp_folder:
                     print(f"      [SKIP] No experiment folder found for {experiment}/{instrument}")
@@ -114,23 +118,26 @@ def run_plotting(
                     base_prefix = stem[: marker_idx + len(marker)]
 
                     if run_ferrybox_panel:
-                        fig = plot_ferrybox_ctd_panel(
-                            df,
-                            experiment=experiment,
-                            instrument=instrument,
-                            plot_labels=PLOT_LABELS,
-                            leg=current_leg,
-                            leg_start_end_path=leg_start_end_path,
-                        )
-                        if fig is not None:
-                            process_fig(
-                                fig,
-                                name="colour_pannel",
-                                base_name=base_prefix,
-                                outdir_pdf=paths.get("fig_pdf_folder_name"),
-                                outdir_png=paths.get("fig_png_folder_name"),
+                        try:
+                            fig = plot_ferrybox_ctd_panel(
+                                df,
+                                experiment=experiment,
+                                instrument=instrument,
+                                plot_labels=PLOT_LABELS,
+                                leg=current_leg,
+                                leg_start_end_path=leg_start_end_path,
                             )
-                            print(f"      [OK] Plotted {cleaned_path.name}: {experiment}/{instrument}/ferrybox_colour_pannel")
+                            if fig is not None:
+                                process_fig(
+                                    fig,
+                                    name="colour_pannel",
+                                    base_name=base_prefix,
+                                    outdir_pdf=paths.get("fig_pdf_folder_name"),
+                                    outdir_png=paths.get("fig_png_folder_name"),
+                                )
+                                print(f"      [OK] Plotted {cleaned_path.name}: {experiment}/{instrument}/ferrybox_colour_pannel")
+                        except Exception as e:
+                            print(f"      [SKIP] {experiment}/{instrument}/ferrybox_colour_pannel in {cleaned_path.name}: {e}")
 
                     for variable in variables:
                         if variable not in df.columns:
@@ -152,7 +159,7 @@ def run_plotting(
                                 leg=current_leg,
                                 leg_start_end_path=leg_start_end_path,
                             )
-                        except ValueError as e:
+                        except Exception as e:
                             print(f"      [SKIP] {experiment}/{instrument}/{variable} in {cleaned_path.name}: {e}")
                             continue
 
@@ -184,18 +191,24 @@ def run_expedition_plotting(
 if __name__ == "__main__":
     legs_to_run = LEGS if LEG is None else (LEG if isinstance(LEG, (list, tuple)) else [LEG])
     for leg in legs_to_run:
-        run_plotting(
+        try:
+            run_plotting(
+                cruise=CRUISE,
+                leg=leg,
+                plot_types_list=DEFAULT_PLOT_TYPES,
+                only_experiments=ONLY_EXPERIMENTS,
+                only_instruments=ONLY_INSTRUMENTS,
+                only_variables=ONLY_VARIABLES,
+            )
+        except Exception as e:
+            print(f"[SKIP] LEG {leg} plotting failed: {e}")
+
+    try:
+        run_expedition_plotting(
             cruise=CRUISE,
-            leg=leg,
-            plot_types_list=DEFAULT_PLOT_TYPES,
             only_experiments=ONLY_EXPERIMENTS,
             only_instruments=ONLY_INSTRUMENTS,
             only_variables=ONLY_VARIABLES,
         )
-
-    run_expedition_plotting(
-        cruise=CRUISE,
-        only_experiments=ONLY_EXPERIMENTS,
-        only_instruments=ONLY_INSTRUMENTS,
-        only_variables=ONLY_VARIABLES,
-    )
+    except Exception as e:
+        print(f"[SKIP] Expedition plotting failed: {e}")

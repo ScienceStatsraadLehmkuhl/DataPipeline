@@ -19,12 +19,12 @@ Sections:
 # ============================================================
 
 ## Cruise: name of the cruise folder under processed_data
-#CRUISE = "2026_SaS"
-CRUISE = "2025_2026_OOE2"
+CRUISE = "2026_SaS"
+#CRUISE = "2025_2026_OOE2"
 
 ## Leg(s) to run
-LEG = "11"          # run only one leg
-#LEG = ["22", "23", "24"]   # run a specific list of legs
+LEG = "17"          # run only one leg
+#LEG = ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29"]   # run a specific list of legs
 #LEG = None          # run all legs
 
 
@@ -37,7 +37,7 @@ MODE = "both"  # "process", "plot", or "both"
 
 ## Filters on what gets run (None = no filter, i.e. run everything)
 ONLY_EXPERIMENTS = None   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"]; navigation is always included
-ONLY_INSTRUMENTS = ["Ferrybox_CTD"]   # e.g. ["Ferrybox_CTD"]
+ONLY_INSTRUMENTS = None   # e.g. ["Ferrybox_CTD"]
 ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
 
 
