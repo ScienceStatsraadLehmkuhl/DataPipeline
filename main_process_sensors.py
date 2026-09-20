@@ -12,9 +12,10 @@ from DataPipeline.gps_gap_fill import (
     find_gga_gaps,
     extract_ek80_gap_positions,
     extract_ferrybox_positions,
+    load_ferrybox_gap_df,
     extract_bridge_gap_positions,
     find_bridge_input_folder,
-    gap_windows_without_coverage,
+    remaining_gap_windows,
     merge_gga_with_gap_fill,
     load_cached_merged_positions,
     gps_merged_sources_path,
@@ -141,10 +142,18 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
         _ferry_base_name,
     ) = input_folders_processer(current_leg, "OCEANOGRAPHY", "Ferrybox_CTD", cruise=cruise)
     try:
-        ferry_raw_df = import_and_process_sources(
-            ferry_input_folder, ferry_output_folder, ferry_exp_folder, ferry_output_file,
-            preferred_time_col=PREFERRED_TIME_COLUMN.get("Ferrybox_CTD"),
+        ferry_time_col = PREFERRED_TIME_COLUMN.get("Ferrybox_CTD")
+        # Only the zips overlapping a gap are converted/read; None means the
+        # folder can't be selected from by filename, so load the whole leg.
+        ferry_raw_df = load_ferrybox_gap_df(
+            ferry_input_folder, ferry_output_folder, gap_windows, preferred_time_col=ferry_time_col,
         )
+        if ferry_raw_df is None:
+            print("      [GAP-FILL] Ferrybox files not selectable by filename; loading whole leg")
+            ferry_raw_df = import_and_process_sources(
+                ferry_input_folder, ferry_output_folder, ferry_exp_folder, ferry_output_file,
+                preferred_time_col=ferry_time_col,
+            )
         print(
             f"      [GAP-FILL] Ferrybox raw: {len(ferry_raw_df)} row(s); ")
         ferry_df = keep_and_rename(
@@ -159,19 +168,24 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
     else:
         print(f"      [GAP-FILL] extract_ferrybox_positions returned: {len(ferrybox_positions)} row(s)")
 
-    # Bridge (ship's own nav log export) is last resort: only tried for
-    # whatever gap windows EK80/Ferrybox still leave open, never alongside
-    # them -- see gps_gap_fill module docstring.
-    remaining_gap_windows = gap_windows_without_coverage(gap_windows, ek80_positions, ferrybox_positions)
+    # Bridge (ship's own nav log export) is last resort: only tried for what
+    # is still a gap > threshold once EK80/Ferrybox fixes are counted in --
+    # i.e. the leftover stretches, not just gaps they didn't touch at all.
+    # See gps_gap_fill module docstring.
+    bridge_gap_windows = remaining_gap_windows(
+        gap_windows, GGA_GAP_FILL_THRESHOLD_MINUTES, ek80_positions, ferrybox_positions,
+    )
     bridge_positions = None
-    if remaining_gap_windows:
+    if bridge_gap_windows:
         print(
-            f"      [GAP-FILL] {len(remaining_gap_windows)} gap(s) still uncovered after EK80/Ferrybox; "
-            f"trying Bridge nav log (last resort)"
+            f"      [GAP-FILL] {len(bridge_gap_windows)} stretch(es) still > {GGA_GAP_FILL_THRESHOLD_MINUTES} min "
+            f"after EK80/Ferrybox; trying Bridge nav log (last resort)"
         )
+        for start, end in bridge_gap_windows:
+            print(f"      [GAP-FILL]   remaining: {start} -> {end}")
         try:
             bridge_folder = find_bridge_input_folder(cruise, current_leg)
-            bridge_positions = extract_bridge_gap_positions(bridge_folder, remaining_gap_windows)
+            bridge_positions = extract_bridge_gap_positions(bridge_folder, bridge_gap_windows)
         except Exception as exc:
             print(f"      [WARN] Could not load Bridge positions for gap-fill: {exc}")
             bridge_positions = None

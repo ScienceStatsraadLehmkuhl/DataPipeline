@@ -19,13 +19,13 @@ Sections:
 # ============================================================
 
 ## Cruise: name of the cruise folder under processed_data
-CRUISE = "2026_SaS"
-#CRUISE = "2025_2026_OOE2"
+#CRUISE = "2026_SaS"
+CRUISE = "2025_2026_OOE2"
 
 ## Leg(s) to run
-LEG = "17"          # run only one leg
-#LEG = ["11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29"]   # run a specific list of legs
-#LEG = None          # run all legs
+#LEG = "14"          # run only one leg
+#LEG = ["9", "10", "11", "12", "14", "27", "28"]   # run a specific list of legs
+LEG = None          # run all legs
 
 
 # ============================================================

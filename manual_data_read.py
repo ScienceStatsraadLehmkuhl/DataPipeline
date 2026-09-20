@@ -6,8 +6,8 @@ def get_logsheet_paths(cruise):
     root = Path(f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/data_entries")
 
     return (
-        root / "Logsheet_LegNumber_StartDate-Time.xlsx",
-        root / "LogSheet_SooGuard.xlsx",
+        root / f"{cruise}_Logsheet_LegNumber_StartDate-Time.xlsx",
+        root / f"{cruise}_LogSheet_SooGuard.xlsx",
     )
 
 

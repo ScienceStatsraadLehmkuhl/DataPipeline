@@ -30,7 +30,7 @@ candidate is nearest in time regardless of source.
 
 A third, last-resort source -- "Bridge" -- is tried only for whatever gap
 windows EK80/Ferrybox still leave uncovered (see
-gap_windows_without_coverage). It comes from the ship's own bridge
+remaining_gap_windows). It comes from the ship's own bridge
 navigation software, manually exported to one xlsx file per covered leg
 under NAVIGATION/Bridge. Unlike every other source here, Bridge files are not raw
 instrument output run through the pipeline's usual combine/clean step --
@@ -46,8 +46,10 @@ import pandas as pd
 
 from DataPipeline.gap_analysis import analyze_gaps_for_file
 from DataPipeline.manual_data_read import load_leg_windows
-from DataPipeline.input_tools import give_me_full_folder_name
+from DataPipeline.fromzipxmltojson import convert_zips_to_csvs, read_csv
+from DataPipeline.input_tools import RELEVANT_INPUT_EXTS, give_me_full_folder_name
 from DataPipeline.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
+from DataPipeline.preprocessing import ensure_time
 
 
 POSITION_COLUMNS = ["time", "latitude_deg", "longitude_deg", "source"]
@@ -56,6 +58,7 @@ ECHOSOUNDER_NC_SUBFOLDER = "EK80_echos_ncdf"
 ECHOSOUNDER_CSV_SUBFOLDER = "EK80_echos_csv"
 
 _EK80_FNAME_RE = re.compile(r"D(\d{8})-T(\d{6})")
+_FERRYBOX_FNAME_RE = re.compile(r"^(\d{8}T\d{6})-(\d{8}T\d{6})\.zip$", re.IGNORECASE)
 
 
 def _in_any_window(times: pd.Series, windows: list[tuple]) -> pd.Series:
@@ -328,6 +331,99 @@ def extract_ek80_gap_positions(
     return positions.sort_values("time").reset_index(drop=True)
 
 
+def _to_naive_utc(ts) -> pd.Timestamp:
+    ts = pd.Timestamp(ts)
+    return ts.tz_convert("UTC").tz_localize(None) if ts.tzinfo else ts
+
+
+def select_ferrybox_zips_for_gaps(
+    input_folder_name: str | None,
+    gap_windows: list[tuple],
+) -> list[str] | None:
+    """
+    Ferrybox .zip filenames whose time range overlaps any gap window, picked
+    from the "<start>-<end>" timestamps in the filenames alone (UTC, no file
+    needs to be opened). Unlike EK80's filenames these carry an end time too,
+    so overlap is exact -- no "last file before the gap" guess needed.
+
+    Returns None (caller should fall back to loading the whole leg) when the
+    folder can't be selected from by filename: it's missing, has no
+    timestamped zips, or holds any other relevant input (csv/json/cnv, or a
+    zip not named this way) that filename-based selection would silently skip.
+    """
+    if not input_folder_name or not os.path.isdir(input_folder_name):
+        return None
+
+    timed = []
+    for fname in os.listdir(input_folder_name):
+        lower = fname.lower()
+        if not lower.endswith(RELEVANT_INPUT_EXTS):
+            continue
+        match = _FERRYBOX_FNAME_RE.match(fname) if lower.endswith(".zip") else None
+        if not match:
+            return None
+        start, end = (pd.to_datetime(s, format="%Y%m%dT%H%M%S") for s in match.groups())
+        timed.append((start, end, fname))
+
+    if not timed:
+        return None
+
+    windows = [(_to_naive_utc(s), _to_naive_utc(e)) for s, e in gap_windows]
+    return sorted(
+        fname for start, end, fname in timed
+        if any(start <= gap_end and end >= gap_start for gap_start, gap_end in windows)
+    )
+
+
+def load_ferrybox_gap_df(
+    input_folder_name: str | None,
+    output_folder_name: str,
+    gap_windows: list[tuple],
+    preferred_time_col: str | None = None,
+) -> pd.DataFrame | None:
+    """
+    Raw Ferrybox rows (canonical 'time' column added, same as the combined
+    CSV would have) for only the zips overlapping the gap windows, or None
+    if the folder can't be selected from by filename (see
+    select_ferrybox_zips_for_gaps) and the caller should load the whole leg.
+
+    Converts only the selected zips missing/stale in output_folder_name --
+    the same per-file CSVs (same location, same staleness rule as
+    input_tools._stale_raw_files) the regular Ferrybox run uses, so it
+    reuses them later. Deliberately does NOT write the combined CSV: a
+    combined file built from a subset would pass ensure_combined_csv's
+    "exists and nothing stale" check and be reused as if complete.
+    """
+    selected = select_ferrybox_zips_for_gaps(input_folder_name, gap_windows)
+    if selected is None:
+        return None
+    if not selected:
+        print(f"      [GAP-FILL] No Ferrybox zips in {input_folder_name} overlap gap window(s) {gap_windows}")
+        return pd.DataFrame()
+    print(f"      [GAP-FILL] {len(selected)} Ferrybox file(s) selected for gap-fill")
+
+    os.makedirs(output_folder_name, exist_ok=True)
+    frames = []
+    for fname in selected:
+        zip_path = os.path.join(input_folder_name, fname)
+        csv_path = os.path.join(output_folder_name, f"{Path(fname).stem}.csv")
+
+        if not os.path.exists(csv_path) or os.path.getmtime(zip_path) > os.path.getmtime(csv_path):
+            convert_zips_to_csvs(zip_path, output_folder_name)
+        if not os.path.exists(csv_path):
+            continue
+
+        rows, _keywords = read_csv(csv_path)
+        if not rows:
+            continue
+        try:
+            frames.append(ensure_time(pd.DataFrame(rows), csv_path, preferred_time_col=preferred_time_col))
+        except ValueError as exc:
+            print(f"      [GAP-FILL] Skipping {fname}: {exc}")
+
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 def extract_ferrybox_positions(
     ferrybox_df: pd.DataFrame | None,
     gap_windows: list[tuple],
@@ -372,6 +468,13 @@ def extract_ferrybox_positions(
             f"are all NaN after parsing (raw sample: {raw_sample}) -- this Ferrybox stream may not "
             f"populate its own position fields on this cruise"
         )
+    # Ferrybox reports 0/0 (null island) when it has no GPS fix -- not a real
+    # position on this cruise, and would otherwise be picked as the nearest
+    # candidate by add_gps_coordinates_from_df's merge_asof.
+    zero_fix = (positions["latitude_deg"] == 0) & (positions["longitude_deg"] == 0)
+    if zero_fix.any():
+        print(f"      [GAP-FILL] Excluding {int(zero_fix.sum())} Ferrybox row(s) with 0/0 lat/lon")
+        positions = positions.loc[~zero_fix]
     positions["source"] = "Ferrybox"
 
     n_before_window_filter = len(positions)
@@ -384,24 +487,35 @@ def extract_ferrybox_positions(
     return positions.sort_values("time").reset_index(drop=True)
 
 
-def gap_windows_without_coverage(
+def remaining_gap_windows(
     gap_windows: list[tuple],
+    threshold_minutes: float,
     *position_frames: pd.DataFrame | None,
 ) -> list[tuple]:
     """
-    Subset of gap_windows that none of position_frames put a fix inside.
+    Stretches of gap_windows still longer than threshold_minutes once
+    position_frames' fixes are counted in.
 
-    Used to gate the Bridge (last-resort) source to only the gaps
-    EK80/Ferrybox actually left open, rather than always consulting it
-    alongside them -- see module docstring.
+    Each gap window's own edges (the GGA fixes bounding it) plus every fix
+    from position_frames inside it split it into sub-intervals; those wider
+    than the threshold are returned. So a gap that EK80/Ferrybox only
+    partly filled comes back as just the leftover stretch(es), not the whole
+    window, and one they filled densely enough doesn't come back at all.
+
+    Used to gate the Bridge (last-resort) source to only what
+    EK80/Ferrybox left open, same threshold as the original gap check --
+    see module docstring.
     """
     non_empty = [df["time"] for df in position_frames if df is not None and not df.empty]
-    filled_times = pd.concat(non_empty, ignore_index=True) if non_empty else pd.Series(dtype="object")
+    filled_times = pd.concat(non_empty, ignore_index=True).sort_values() if non_empty else pd.Series(dtype="object")
+    threshold = pd.Timedelta(minutes=threshold_minutes)
 
-    return [
-        (start, end) for start, end in gap_windows
-        if filled_times.empty or not ((filled_times >= start) & (filled_times <= end)).any()
-    ]
+    remaining = []
+    for start, end in gap_windows:
+        inside = filled_times[(filled_times >= start) & (filled_times <= end)] if not filled_times.empty else []
+        points = [start, *inside, end]
+        remaining.extend((a, b) for a, b in zip(points, points[1:]) if b - a > threshold)
+    return remaining
 
 
 def find_bridge_input_folder(cruise: str, leg) -> str | None:
@@ -482,7 +596,7 @@ def extract_bridge_gap_positions(
     """
     GPS positions from the ship's own bridge-navigation xlsx export --
     last-resort gap-fill source, meant to be called only with whatever gap
-    windows EK80/Ferrybox left uncovered (see gap_windows_without_coverage).
+    windows EK80/Ferrybox left uncovered (see remaining_gap_windows).
     Bridge files aren't run through the pipeline's usual raw-source
     processing (no CSV combine/clean step); they're a manually-supplied nav
     log read directly here (see _read_bridge_xlsx), for whichever legs the
