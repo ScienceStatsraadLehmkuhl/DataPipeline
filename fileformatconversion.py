@@ -218,6 +218,11 @@ def convert_cnv_to_csv(input_folder_name: str | Path,
     for key, value in metadata.items():
         df[key] = value
 
+    # The header FileName/System UTC are copy-pasted between casts often
+    # enough (and two files can even be identical) that they can't tell
+    # casts apart once every file is concatenated; the actual file name can.
+    df["Source_File"] = cnv_path.name
+
     df.to_csv(csv_path, index=False)
     return csv_path
 

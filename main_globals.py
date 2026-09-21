@@ -23,7 +23,7 @@ Sections:
 CRUISE = "2025_2026_OOE2"
 
 ## Leg(s) to run
-#LEG = "14"          # run only one leg
+#LEG = "9"          # run only one leg
 #LEG = ["9", "10", "11", "12", "14", "27", "28"]   # run a specific list of legs
 LEG = None          # run all legs
 
@@ -33,7 +33,7 @@ LEG = None          # run all legs
 # ============================================================
 
 ## Processing? Plotting? Both?
-MODE = "both"  # "process", "plot", or "both"
+MODE = "plot"  # "process", "plot", or "both"
 
 ## Filters on what gets run (None = no filter, i.e. run everything)
 ONLY_EXPERIMENTS = None   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"]; navigation is always included
@@ -42,8 +42,7 @@ ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
 
 
 # ============================================================
-# Acoustics (its own pipeline, run separately from "process sensors" above --
-# see main_processing_acoustics.py)
+# Acoustics (its own pipeline, run separately from "process sensors" above see main_processing_acoustics.py)
 # ============================================================
 
 RUN_ACOUSTICS = False       # whether to run the acoustics pipeline at all
@@ -73,10 +72,10 @@ DEFAULT_PLOT_TYPES = ["time", "time_pts", "ferrybox_colour_pannel"]
 PRESSURE_REMOVAL_BUFFER_MINUTES = 15   # minutes of data removed after each pressure-removal event
 
 ## GPS gap-fill: EK80/Ferrybox fill in for GGA when it has gaps
-GGA_GAP_FILL_THRESHOLD_MINUTES = 5   # GGA gaps larger than this trigger EK80/Ferrybox gap-fill
+GGA_GAP_FILL_THRESHOLD_MINUTES = 0.06   # GGA gaps larger than this trigger EK80/Ferrybox gap-fill #0.06 = 4 sec
 
 ## Gap analysis (gap_analysis.py)
-GAP_THRESHOLD_MINUTES = 5   # only report gaps larger than this threshold
+GAP_THRESHOLD_MINUTES = 1   # only report gaps larger than this threshold
 
 ## Ferrybox spike removal (hampel_spike_clean in cleaning_Ferrybox.py):
 ## a Hampel filter that blanks single/few-point spikes by comparing each

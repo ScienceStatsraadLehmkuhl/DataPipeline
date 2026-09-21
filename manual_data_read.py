@@ -71,9 +71,13 @@ def load_pressure_removal_rules(sooguard_log_path: str, *, sheet_name="Pressure_
     df["leg"] = pd.to_numeric(df["leg"], errors="coerce")
     df["pressure_under"] = pd.to_numeric(df["pressure_under"], errors="coerce")
 
+    # Incomplete rows (e.g. a leg with no threshold entered yet) are skipped
+    # with a warning rather than failing every leg; pressure_removal_clean
+    # still raises if the leg being processed has no usable rule.
     bad = df[df["leg"].isna() | df["pressure_under"].isna()]
     if not bad.empty:
-        raise ValueError(f"Bad pressure removal rows found:\n{bad[['leg','pressure_under']]}")
+        print(f"      Warning: ignoring incomplete pressure removal rows:\n{bad[['leg','pressure_under']]}")
+        df = df.drop(bad.index)
 
     df["leg"] = df["leg"].astype(int)
 

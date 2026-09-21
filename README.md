@@ -101,7 +101,7 @@ python -m DataPipeline.combine_dataset_new \
 Create expedition-length plots from existing combined 5-minute files:
 
 ```bash
-python -m DataPipeline.plot_expedition_report --cruise 2026_SaS
+python -m DataPipeline.plot_all_legs --cruise 2026_SaS
 ```
 
 Run gap analysis:
@@ -184,7 +184,7 @@ The normal workflow is:
 - `cleaning_Ferrybox.py`: sensor-specific cleaning rules
 - `combine_dataset_new.py`: cruise-wide data combination
 - `main_plot.py`: per-leg and expedition plotting orchestration
-- `plot_expedition_report.py`: expedition-length plots
+- `plot_all_legs.py`: expedition-length plots
 - `gap_analysis.py`: gap reports and statistics
 - `globals.py`: experiment and instrument configuration
 - `main_globals.py`: runtime defaults and filters

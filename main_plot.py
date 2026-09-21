@@ -4,9 +4,9 @@ import pandas as pd
 
 from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
 from DataPipeline.input_tools import input_folders_processer
-from DataPipeline.plotters_reports import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
+from DataPipeline.plotters_by_leg import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
 from DataPipeline.manual_data_read import get_logsheet_paths
-from DataPipeline.plot_expedition_report import plot_expedition_report
+from DataPipeline.plot_all_legs import plot_expedition_report
 from DataPipeline.main_globals import CRUISE, LEG, DEFAULT_PLOT_TYPES, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 from pathlib import Path
 
@@ -68,6 +68,8 @@ def run_plotting(
             instruments = INSTRUMENTS.get(experiment, [])
             if only_instruments is not None:
                 instruments = [i for i in instruments if i in only_instruments]
+            # Seabird_CTD casts are vertical profiles: main_plot_ctd.py plots them.
+            instruments = [i for i in instruments if i != "Seabird_CTD"]
 
             if not instruments:
                 print(f"      [SKIP] No instruments configured for {experiment}")

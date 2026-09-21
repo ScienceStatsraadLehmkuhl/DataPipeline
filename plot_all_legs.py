@@ -18,7 +18,7 @@ from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_vari
 from DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 from DataPipeline.combine_dataset_new import combined_output_folder, combined_output_root, resolve_cruise
 from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
-from DataPipeline.plotters_reports import plot_property_over_time_pub, process_fig
+from DataPipeline.plotters_by_leg import plot_property_over_time_pub, process_fig
 
 EXPEDITION_INTERVAL = "5min"
 # Data points are 5 min apart; break the line only on gaps well beyond that
@@ -141,6 +141,9 @@ def plot_expedition_report(
         if only_instruments is not None:
             instruments = [i for i in instruments if i in only_instruments]
 
+        # Seabird_CTD casts are vertical profiles (see main_plot_ctd.py), not a time series.
+        instruments = [i for i in instruments if i != "Seabird_CTD"]
+
         for instrument in instruments:
             csv_path = combined_csv_path(experiment, instrument, interval=interval, cruise=cruise)
             if not csv_path.exists():
@@ -200,6 +203,15 @@ def plot_expedition_report(
                     )
                     n_written += 1
                     print(f"      [OK] Plotted expedition-length {experiment}/{instrument}/{variable} ({plot_type})")
+
+    # Seabird_CTD profiles (depth vs variable, one colour per station) aren't a
+    # time series and don't come from the combined interval files, so they're
+    # plotted by main_plot_ctd from the per-leg processed files. Imported here
+    # because main_plot_ctd itself imports from this module.
+    from DataPipeline.main_plot_ctd import run_expedition_plotting_ctd
+    n_written += run_expedition_plotting_ctd(
+        selected_cruise, only_experiments=only_experiments, only_instruments=only_instruments,
+    )
 
     print(f"\nWrote {n_written} expedition figure(s) to: {fig_root}")
     return n_written

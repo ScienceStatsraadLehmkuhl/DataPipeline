@@ -382,7 +382,13 @@ def process_xml_files(input_path, output_csv_path):
     keywords = []
     
     # Directory - process all XML files
-    xml_files = [f for f in os.listdir(input_path) if f.lower().endswith('.xml')]
+    # Most zips hold the XMLs at the top level, but a few hold them inside a
+    # subfolder (<zip stem>/<file>.xml), so search the extracted tree.
+    xml_files = [
+        os.path.relpath(os.path.join(root, f), input_path)
+        for root, _dirs, files in os.walk(input_path)
+        for f in files if f.lower().endswith('.xml')
+    ]
     if not xml_files:
         print(f"No XML files found in directory: {input_path}")
         return

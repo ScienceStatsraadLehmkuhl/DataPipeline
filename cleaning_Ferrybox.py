@@ -118,9 +118,8 @@ def trilux_zero_clean(
     if experiment != "OCEANOGRAPHY" or instrument != "Ferrybox_CTD":
         return out
 
-    missing = [c for c in cols if c not in out.columns]
-    if missing:
-        raise KeyError(f"{missing} not in df columns: {list(out.columns)}")
+    # Early legs have no Trilux data at all: clean whichever columns exist.
+    cols = [c for c in cols if c in out.columns]
 
     for col in cols:
         vals = pd.to_numeric(out[col], errors="coerce")

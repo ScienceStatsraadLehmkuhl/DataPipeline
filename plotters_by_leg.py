@@ -3,13 +3,15 @@ Plotting functions using Matplotlib (publication-friendly, static).
 Saves figures as BOTH PDF (vector) and PNG (raster) when savefig=True.
 """
 import os
+import textwrap
 import pandas as pd
 import numpy as np
 from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from DataPipeline.globals import PLOT_LABELS
+import matplotlib.ticker as mticker
+from DataPipeline.globals import PLOT_LABELS, get_categorical_codes
 from DataPipeline.manual_data_read import  load_leg_windows
 
 
@@ -124,6 +126,12 @@ def plot_property_over_time_pub(
     if margins is None:
         margins = dict(left=0.12, right=0.98, bottom=0.32, top=0.86)
 
+    # Code-valued column (e.g. precipitation type): y axis shows the names of the
+    # codes present, evenly spaced, instead of the numeric codes.
+    category_names = get_categorical_codes(experiment, instrument).get(property_column)
+    if category_names:
+        margins = {**margins, "right": min(margins["right"], 0.68)}  # room for the names on the right
+
     def _label_for(key, default):
         try:
             return plot_labels[experiment][instrument].get(key, default)
@@ -203,6 +211,12 @@ def plot_property_over_time_pub(
             gaps = d[time_column].diff() > max_gap
             d.loc[gaps, property_column] = np.nan
 
+    category_codes = []
+    if category_names:
+        codes = d[property_column].round()
+        category_codes = sorted(codes.dropna().unique())
+        d[property_column] = codes.map({c: i for i, c in enumerate(category_codes)})
+
     with mpl.rc_context({
         "figure.dpi": dpi,
         "savefig.dpi": dpi,
@@ -228,6 +242,8 @@ def plot_property_over_time_pub(
             ax.scatter(d[time_column], d[property_column], s=marker_size ** 2, color=color, linewidths=0, rasterized=True)
         elif kind == "line":
             plot_kwargs = dict(color=color, linewidth=line_width, solid_capstyle="round", rasterized=True)
+            if category_names:
+                plot_kwargs["drawstyle"] = "steps-post"  # no diagonals between categories
             if add_markers:
                 plot_kwargs.update(dict(
                     marker="o",
@@ -251,6 +267,20 @@ def plot_property_over_time_pub(
         ax.set_xlabel(resolved_x_label)
         ax.set_ylabel(resolved_y_label)
 
+        if category_names and category_codes:
+            # Codes on the left axis, their names on a mirrored axis on the right
+            positions = list(range(len(category_codes)))
+            ax.set_yticks(positions)
+            ax.set_yticklabels([f"{int(c):02d}" for c in category_codes])
+            ax.set_ylim(-0.5, len(category_codes) - 0.5)
+            ax_names = ax.secondary_yaxis("right")
+            ax_names.set_yticks(positions)
+            ax_names.set_yticklabels([
+                textwrap.fill(category_names.get(int(c), f"Code {int(c)}"), 28)
+                for c in category_codes
+            ])
+            ax_names.tick_params(labelsize=8)
+
         if title is None:
             title = f"{resolved_y_label} over time"
         fig.text(margins["left"], title_y, title, ha="left", va="top", fontsize=10)
@@ -270,6 +300,8 @@ def plot_property_over_time_pub(
             lbl.set_ha("right")
 
         ax.minorticks_on()
+        if category_names:
+            ax.yaxis.set_minor_locator(mticker.NullLocator())
 
 
 

@@ -14,6 +14,9 @@ from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
 from DataPipeline.main_globals import CRUISE, GAP_THRESHOLD_MINUTES, LEG
 from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
 
+# Bump when the time parsing changes, so parquet caches built by the old logic are ignored.
+CACHE_VERSION = "v2"
+
 TIMERS = {"exists_check": 0.0, "csv_read": 0.0, "parse_and_gaps": 0.0}
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -86,7 +89,7 @@ def iter_target_files(cruise: str, legs: Iterable[str] | None = None) -> Iterabl
 def _cache_path_for(file_path: Path, cache_dir: Path) -> Path:
     """Build a local cache filename that changes if the source file changes."""
     stat = file_path.stat()
-    key = f"{file_path.stem}_{stat.st_size}_{int(stat.st_mtime)}"
+    key = f"{file_path.stem}_{stat.st_size}_{int(stat.st_mtime)}_{CACHE_VERSION}"
     return cache_dir / f"{key}.parquet"
 
 
@@ -130,7 +133,13 @@ def _read_time_column(file_path: Path, cache_dir: Path | None, time_format: str 
     if df.empty:
         return pd.Series(dtype="datetime64[ns, UTC]")
 
-    parsed = pd.to_datetime(df[time_col], errors="coerce", utc=True, format=time_format).dropna()
+    # Merged/gap-filled files mix timestamps with and without fractional seconds
+    # (GGA has ".460", Ferrybox/Bridge don't). With format=None pandas infers one
+    # format from the first row and turns every non-matching row into NaT, which
+    # then shows up as huge fake gaps -- so default to per-row ISO8601 parsing.
+    parsed = pd.to_datetime(
+        df[time_col], errors="coerce", utc=True, format=time_format or "ISO8601"
+    ).dropna()
 
     if cache_dir is not None:
         cache_path = _cache_path_for(file_path, cache_dir)

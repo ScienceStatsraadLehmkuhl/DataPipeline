@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import pandas as pd
 from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, PREFERRED_TIME_COLUMN, get_variables
 from DataPipeline.input_tools import import_and_process_sources, input_folders_processer, update_csv
 from DataPipeline.data_processing_sensors import data_process, keep_and_rename
@@ -206,6 +207,28 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
     return merged
 
 
+def _load_existing_gps(cruise, current_leg):
+    """
+    Load the leg's existing GPS-MERGED-SOURCES.csv (written by a previous
+    NAVIGATION/GGA run) to geotag against when GGA isn't part of this run.
+    Returns (gga_df, path), or (None, None) with a warning if it doesn't
+    exist yet -- instruments then run un-geotagged, as a NAVIGATION run is
+    needed first. Never triggers gap-fill itself (that's expensive).
+    """
+    _in, _out, exp_folder_name, *_rest = input_folders_processer(
+        current_leg, "NAVIGATION", "GGA", cruise=cruise
+    )
+    merged_path = gps_merged_sources_path(cruise, current_leg, exp_folder_name)
+    if not os.path.exists(merged_path):
+        print(
+            f"      [WARN] NAVIGATION/GGA not in this run and {os.path.basename(merged_path)} "
+            f"doesn't exist yet -- instruments will NOT be geotagged. Process NAVIGATION first."
+        )
+        return None, None
+    print(f"      [GPS] NAVIGATION/GGA not in this run; geotagging against existing {os.path.basename(merged_path)}")
+    return pd.read_csv(merged_path, parse_dates=["time"]), merged_path
+
+
 def run_processing(
     cruise,
     leg,
@@ -238,6 +261,17 @@ def run_processing(
         if only_experiments is not None:
             experiments = [e for e in experiments if e in only_experiments]
 
+        # If GGA isn't being processed in this run (filtered out by
+        # only_experiments/only_instruments), nothing below would ever set
+        # gga_df and every other instrument would silently skip geotagging.
+        # Fall back to the position table a previous NAVIGATION run left on disk.
+        gga_in_run = (
+            "NAVIGATION" in experiments
+            and (only_instruments is None or "GGA" in only_instruments)
+        )
+        if not gga_in_run:
+            gga_df, gps_merged_path = _load_existing_gps(cruise, current_leg)
+
         for experiment in experiments:
             print(f"\nPROCESSING LEG {current_leg}: {experiment}")
 
@@ -251,6 +285,9 @@ def run_processing(
             # dropping the 'source' column into an otherwise-unused
             # "_geotag_cleaned" file set.
             instruments = [i for i in instruments if i != "GPS-MERGED-SOURCES"]
+            # Seabird_CTD casts are vertical profiles: main_process_ctd.py
+            # handles them (no time-subsampled outputs, profile-safe row order).
+            instruments = [i for i in instruments if i != "Seabird_CTD"]
             if only_instruments is not None:
                 instruments = [i for i in instruments if i in only_instruments]
 

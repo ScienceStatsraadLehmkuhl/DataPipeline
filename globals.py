@@ -175,6 +175,7 @@ RENAME_COLUMNS = {
             "Heading\, degrees true": "heading_deg_true",
             "Heading, degrees true": "heading_deg_true",
             '"Heading\"': "heading_deg_true",
+            "Heading,_degrees_true": "heading_deg_true",
             "time": "time",
         },
         "SXN23": {
@@ -363,6 +364,107 @@ RENAME_COLUMNS = {
     },
 }
 
+
+
+# WMO code table 4680 (wawa): present weather reported by an automatic weather
+# station. Reserved codes are omitted (except 69); group headings (21, 27, 30, 40, 50, 60,
+# 70, 80, 90) are kept since a station can report them as-is.
+WAWA_CODES = {
+    0: "No precipitation",
+    1: "Clouds dissolving or becoming less developed (past hour)",
+    2: "State of sky unchanged (past hour)",
+    3: "Clouds forming or developing (past hour)",
+    4: "Haze, smoke or dust, visibility >= 1 km",
+    5: "Haze, smoke or dust, visibility < 1 km",
+    10: "Mist",
+    11: "Diamond dust",
+    12: "Distant lightning",
+    18: "Squalls",
+    20: "Fog (past hour)",
+    21: "Precipitation (past hour)",
+    22: "Drizzle (not freezing) or snow grains (past hour)",
+    23: "Rain (not freezing) (past hour)",
+    24: "Snow (past hour)",
+    25: "Freezing drizzle or freezing rain (past hour)",
+    26: "Thunderstorm (past hour)",
+    27: "Blowing or drifting snow or sand",
+    28: "Blowing or drifting snow or sand, visibility >= 1 km",
+    29: "Blowing or drifting snow or sand, visibility < 1 km",
+    30: "Fog",
+    31: "Fog or ice fog in patches",
+    32: "Fog or ice fog, thinner",
+    33: "Fog or ice fog, no change",
+    34: "Fog or ice fog, thicker",
+    35: "Fog, depositing rime",
+    40: "Precipitation",
+    41: "Precipitation, slight or moderate",
+    42: "Precipitation, heavy",
+    43: "Liquid precipitation, slight or moderate",
+    44: "Liquid precipitation, heavy",
+    45: "Solid precipitation, slight or moderate",
+    46: "Solid precipitation, heavy",
+    47: "Freezing precipitation, slight or moderate",
+    48: "Freezing precipitation, heavy",
+    50: "Drizzle",
+    51: "Drizzle, not freezing, slight",
+    52: "Drizzle, not freezing, moderate",
+    53: "Drizzle, not freezing, heavy",
+    54: "Drizzle, freezing, slight",
+    55: "Drizzle, freezing, moderate",
+    56: "Drizzle, freezing, heavy",
+    57: "Drizzle and rain, slight",
+    58: "Drizzle and rain, moderate or heavy",
+    60: "Rain",
+    61: "Rain, not freezing, slight",
+    62: "Rain, not freezing, moderate",
+    63: "Rain, not freezing, heavy",
+    64: "Rain, freezing, slight",
+    65: "Rain, freezing, moderate",
+    66: "Rain, freezing, heavy",
+    67: "Rain (or drizzle) and snow, slight",
+    68: "Rain (or drizzle) and snow, moderate or heavy",
+    69: "Rain, drizzle, Snow",  # reserved in the WMO table, but the Lufft reports it
+    70: "Snow",
+    71: "Snow, slight",
+    72: "Snow, moderate",
+    73: "Snow, heavy",
+    74: "Ice pellets, slight",
+    75: "Ice pellets, moderate",
+    76: "Ice pellets, heavy",
+    77: "Snow grains",
+    78: "Ice crystals",
+    80: "Showers or intermittent precipitation",
+    81: "Rain showers, slight",
+    82: "Rain showers, moderate",
+    83: "Rain showers, heavy",
+    84: "Rain showers, violent",
+    85: "Snow showers, slight",
+    86: "Snow showers, moderate",
+    87: "Snow showers, heavy",
+    89: "Hail",
+    90: "Thunderstorm",
+    91: "Thunderstorm, slight or moderate, no precipitation",
+    92: "Thunderstorm, slight or moderate, rain and/or snow showers",
+    93: "Thunderstorm, slight or moderate, hail",
+    94: "Thunderstorm, heavy, no precipitation",
+    95: "Thunderstorm, heavy, rain and/or snow showers",
+    96: "Thunderstorm, heavy, hail",
+    99: "Tornado",
+}
+
+# Categorical (code-valued) columns: these can't be averaged, so subsample()
+# takes the dominant code per time bin instead (see data_processing_sensors),
+# and the plotters show the names on the y axis instead of the codes.
+CATEGORICAL_VARIABLES = {
+    "METEOROLOGY": {
+        "Lufft_WS100-1": {"precipitation_type": WAWA_CODES},
+    },
+}
+
+
+def get_categorical_codes(experiment, instrument):
+    """{column: {code: name}} for the code-valued columns of one instrument ({} if none)."""
+    return CATEGORICAL_VARIABLES.get(experiment, {}).get(instrument, {})
 
 
 PLOT_LABELS = {

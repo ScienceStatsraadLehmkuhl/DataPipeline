@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from DataPipeline.main_process_sensors import run_processing
+from DataPipeline.main_process_ctd import run_processing_ctd
 from DataPipeline.main_plot import run_plotting, run_expedition_plotting
+from DataPipeline.main_plot_ctd import run_plotting_ctd
 from DataPipeline.main_globals import *
 from DataPipeline.globals import LEGS
 from DataPipeline.cli import parse_args
@@ -25,6 +27,13 @@ if __name__ == "__main__":
                 only_instruments=args.only_instruments,
                 only_variables=args.only_variables,
             )
+            run_processing_ctd(
+                cruise=args.cruise,
+                leg=leg,
+                update_flag=args.update,
+                only_experiments=args.only_experiments,
+                only_instruments=args.only_instruments,
+            )
 
         if args.mode in ("plot", "both"):
             run_plotting(
@@ -34,6 +43,12 @@ if __name__ == "__main__":
                 only_experiments=args.only_experiments,
                 only_instruments=args.only_instruments,
                 only_variables=args.only_variables,
+            )
+            run_plotting_ctd(
+                cruise=args.cruise,
+                leg=leg,
+                only_experiments=args.only_experiments,
+                only_instruments=args.only_instruments,
             )
 
     if args.run_acoustics and args.mode in ("process", "both"):
