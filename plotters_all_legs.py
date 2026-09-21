@@ -41,7 +41,11 @@ def load_leg_bounds(cruise: str) -> pd.DataFrame | None:
     """Leg number + tz-naive UTC start/end, or None if the logsheet can't be read."""
     leg_start_end_path, _ = get_logsheet_paths(cruise)
     try:
-        legs = load_leg_windows(str(leg_start_end_path))
+        # .copy(): load_leg_windows is lru_cached and returns the SAME object
+        # to every caller, so tz-stripping it in place below would hand
+        # tz-naive leg windows to later callers (gap analysis crashed on
+        # comparing them with tz-aware data).
+        legs = load_leg_windows(str(leg_start_end_path)).copy()
     except Exception as e:
         print(f"      [WARN] Leg boundaries unavailable ({e}); plotting without leg markers")
         return None

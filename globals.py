@@ -172,7 +172,7 @@ RENAME_COLUMNS = {
         "HDT":{
             "Timestamp":"Timestamp",
             '"Heading, degrees true"': "heading_deg_true",
-            "Heading\, degrees true": "heading_deg_true",
+            r"Heading\, degrees true": "heading_deg_true",
             "Heading, degrees true": "heading_deg_true",
             '"Heading\"': "heading_deg_true",
             "Heading,_degrees_true": "heading_deg_true",

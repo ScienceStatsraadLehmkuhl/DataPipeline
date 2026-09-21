@@ -13,6 +13,7 @@ import pandas as pd
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
 from DataPipeline.main_globals import CRUISE, GAP_THRESHOLD_MINUTES, LEG
 from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
+from DataPipeline.preprocessing import to_utc
 
 # Bump when the time parsing changes, so parquet caches built by the old logic are ignored.
 CACHE_VERSION = "v2"
@@ -133,13 +134,14 @@ def _read_time_column(file_path: Path, cache_dir: Path | None, time_format: str 
     if df.empty:
         return pd.Series(dtype="datetime64[ns, UTC]")
 
-    # Merged/gap-filled files mix timestamps with and without fractional seconds
-    # (GGA has ".460", Ferrybox/Bridge don't). With format=None pandas infers one
-    # format from the first row and turns every non-matching row into NaT, which
-    # then shows up as huge fake gaps -- so default to per-row ISO8601 parsing.
-    parsed = pd.to_datetime(
-        df[time_col], errors="coerce", utc=True, format=time_format or "ISO8601"
-    ).dropna()
+    # to_utc handles any mix of timestamp formats (older files mix whole and
+    # fractional seconds; default inference would turn the minority into NaT
+    # and show up as huge fake gaps). An explicit --time-format still wins.
+    if time_format:
+        parsed = pd.to_datetime(df[time_col], errors="coerce", utc=True, format=time_format)
+    else:
+        parsed = to_utc(df[time_col])
+    parsed = parsed.dropna()
 
     if cache_dir is not None:
         cache_path = _cache_path_for(file_path, cache_dir)

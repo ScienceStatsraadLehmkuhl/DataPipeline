@@ -19,6 +19,7 @@ instrument == "Ferrybox_CTD" and are no-ops otherwise:
 import pandas as pd
 import numpy as np
 from DataPipeline.manual_data_read import load_leg_windows, load_pressure_removal_rules
+from DataPipeline.preprocessing import to_utc
 from DataPipeline.main_globals import (
     PRESSURE_REMOVAL_BUFFER_MINUTES,
     HAMPEL_WINDOW_MINUTES,
@@ -174,7 +175,7 @@ def hampel_spike_clean(
     if not cols:
         return out
 
-    time_vals = pd.to_datetime(out[time_col], errors="coerce")
+    time_vals = to_utc(out[time_col])
     # Rows with an unparseable timestamp can't be placed in a time window,
     # so they're left out of the rolling computation (and left unflagged)
     # rather than dropped, since this step only ever blanks cells.

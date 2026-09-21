@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from DataPipeline.fromzipxmltojson import convert_zips_to_csvs
 from DataPipeline.fileformatconversion import  convert_jsons_to_csvs, copy_csv_files, convert_cnv_to_csv
-from DataPipeline.preprocessing import from_csvs_to_csv
+from DataPipeline.preprocessing import from_csvs_to_csv, format_time
 
 
 def input_folders_processer(leg, experiment, instrument, cruise):
@@ -68,8 +68,12 @@ def update_csv(df, file_path):
     Parameters:
         df (pd.DataFrame): The DataFrame to write.
         file_path (str): Path to the CSV file to overwrite.
-        
+
+    The `time` column is always written in the canonical format
+    (preprocessing.TIME_FORMAT), whatever form it has in `df`.
     """
+    if "time" in df.columns:
+        df = df.assign(time=format_time(df["time"]))
     df.to_csv(file_path, index=False)
 
 
@@ -145,10 +149,14 @@ def ensure_combined_csv(
     exp_folder_name: str,
     output_file: str,
     preferred_time_col: str | None = None,
+    force_rebuild: bool = False,
 ):
     """
     Ensure the combined CSV exists at exp_folder_name/output_file and
     reflects the latest raw inputs.
+
+    `force_rebuild` recombines the per-file CSVs even when nothing is stale
+    (used to migrate a combined file whose `time` column isn't canonical).
 
     Staleness is decided per raw file via _stale_raw_files (does this raw
     file have a matching output CSV, and is that CSV at least as new as the
@@ -174,13 +182,15 @@ def ensure_combined_csv(
     )
 
     # 1) Reuse combined file only if every raw file is already represented.
-    if os.path.exists(combined_path) and not stale_files:
+    if os.path.exists(combined_path) and not stale_files and not force_rebuild:
         return combined_path
 
     if not has_inputs:
-        if os.path.exists(combined_path):
+        if os.path.exists(combined_path) and not force_rebuild:
             return combined_path
         if not _has_output_csvs(output_folder_name):
+            if os.path.exists(combined_path):
+                return combined_path  # force_rebuild, but nothing to rebuild from
             raise FileNotFoundError(
                 f"         1. Combined file not found\n"
                 f"         2. No CSVs found in output folder to combine\n"
@@ -209,11 +219,32 @@ def import_and_process_sources(
     output_file: str,
     preferred_time_col: str | None = None,
 ) -> pd.DataFrame:
-    combined_path = ensure_combined_csv(
+    kwargs = dict(
         input_folder_name=input_folder_name,
         output_folder_name=output_folder_name,
         exp_folder_name=exp_folder_name,
         output_file=output_file,
         preferred_time_col=preferred_time_col,
     )
-    return load_combined_csv(combined_path)
+    combined_path = ensure_combined_csv(**kwargs)
+    df = load_combined_csv(combined_path)
+
+    # A combined file built before the canonical time format can carry
+    # mixed-precision time strings and literal "NaT" rows (lost at build time).
+    # It is only rebuilt when a raw file goes stale, so migrate it here, once.
+    if not _time_is_canonical(df):
+        print(f"      [TIME] {os.path.basename(combined_path)} has a non-canonical 'time' column; rebuilding from per-file CSVs")
+        combined_path = ensure_combined_csv(**kwargs, force_rebuild=True)
+        df = load_combined_csv(combined_path)
+    return df
+
+
+_CANONICAL_TIME_RE = r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{6}\+00:00"
+
+
+def _time_is_canonical(df: pd.DataFrame) -> bool:
+    """True if df has no `time` column, or every non-empty value is in TIME_FORMAT."""
+    if "time" not in df.columns:
+        return True
+    t = df["time"].dropna().astype(str)
+    return bool(t.str.fullmatch(_CANONICAL_TIME_RE).all())

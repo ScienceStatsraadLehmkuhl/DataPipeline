@@ -5,6 +5,7 @@ from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS,
 from DataPipeline.input_tools import import_and_process_sources, input_folders_processer, update_csv
 from DataPipeline.data_processing_sensors import data_process, keep_and_rename
 from DataPipeline.manual_data_read import get_logsheet_paths
+from DataPipeline.preprocessing import to_utc
 from DataPipeline.main_globals import (
     CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES,
     GGA_GAP_FILL_THRESHOLD_MINUTES,
@@ -226,7 +227,9 @@ def _load_existing_gps(cruise, current_leg):
         )
         return None, None
     print(f"      [GPS] NAVIGATION/GGA not in this run; geotagging against existing {os.path.basename(merged_path)}")
-    return pd.read_csv(merged_path, parse_dates=["time"]), merged_path
+    gps = pd.read_csv(merged_path)
+    gps["time"] = to_utc(gps["time"])
+    return gps, merged_path
 
 
 def run_processing(

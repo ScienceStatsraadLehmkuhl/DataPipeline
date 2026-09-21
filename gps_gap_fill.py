@@ -49,7 +49,7 @@ from DataPipeline.manual_data_read import load_leg_windows
 from DataPipeline.fromzipxmltojson import convert_zips_to_csvs, read_csv
 from DataPipeline.input_tools import RELEVANT_INPUT_EXTS, give_me_full_folder_name
 from DataPipeline.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
-from DataPipeline.preprocessing import ensure_time
+from DataPipeline.preprocessing import ensure_time, to_utc
 
 
 POSITION_COLUMNS = ["time", "latitude_deg", "longitude_deg", "source"]
@@ -104,7 +104,9 @@ def load_cached_merged_positions(merged_path: str, gga_source_csv: str) -> pd.Da
         return None
     if os.path.getmtime(merged_path) < os.path.getmtime(gga_source_csv):
         return None
-    return pd.read_csv(merged_path, parse_dates=["time"])
+    merged = pd.read_csv(merged_path)
+    merged["time"] = to_utc(merged["time"])
+    return merged
 
 
 def find_gga_gaps(
@@ -282,14 +284,10 @@ def extract_ek80_gap_positions(
             f"(columns found: {sorted(df.columns)}) -- skipping EK80 gap-fill"
         )
         return empty
-    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-    # Unlike GGA/Ferrybox's own logging software, echopype writes this column
-    # from a naive numpy datetime64 with no UTC offset in the string at all
-    # (e.g. "2025-09-02 18:51:51.476097"), so it parses naive here while
-    # everything else in the pipeline is tz-aware UTC. Localize (not
-    # convert) since the values are already UTC, just unlabeled.
-    if df["timestamp"].dt.tz is None:
-        df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
+    # echopype writes this column from a naive numpy datetime64 with no UTC
+    # offset (e.g. "2025-09-02 18:51:51.476097"); to_utc labels naive values
+    # as UTC (they already are UTC, just unlabeled).
+    df["timestamp"] = to_utc(df["timestamp"])
 
     if not {"latitude_mru1", "longitude_mru1"}.issubset(df.columns):
         print(
@@ -458,7 +456,7 @@ def extract_ferrybox_positions(
     # comparison against the (tz-aware) gap windows below -- see the
     # "Invalid comparison between dtype=datetime64[ns] and Timestamp" crash
     # this replaced.
-    positions["time"] = pd.to_datetime(positions["time"], errors="coerce", utc=True)
+    positions["time"] = to_utc(positions["time"])
     n_raw_rows = len(positions)
     positions = positions.dropna(subset=["time", "latitude_deg", "longitude_deg"])
     if n_raw_rows and positions.empty:
@@ -647,19 +645,15 @@ def merge_gga_with_gap_fill(
     """GGA positions plus whatever gap-window fill-in was found, tagged by source."""
     base = gga_df[[time_col, "latitude_deg", "longitude_deg"]].copy()
     base["source"] = "GGA"
-    # Parse each part's time column independently before concatenation, same
-    # as add_gps_coordinates_from_df does for its two sides -- every raw
-    # source here carries an explicit UTC offset in its timestamp strings, so
-    # pd.to_datetime naturally produces matching tz-aware dtypes on its own.
-    # Parsing *after* concat instead (on an already-mixed column) silently
-    # turns whichever side's dtype disagreed into NaT.
-    base[time_col] = pd.to_datetime(base[time_col], errors="coerce")
+    # Every part's time column is brought to tz-aware UTC independently
+    # before concatenation, so no part's dtype can disagree with another's.
+    base[time_col] = to_utc(base[time_col])
 
     parts = [base]
     for extra in (ek80_positions, ferrybox_positions, bridge_positions):
         if extra is not None and not extra.empty:
             extra = extra.rename(columns={"time": time_col}).copy()
-            extra[time_col] = pd.to_datetime(extra[time_col], errors="coerce")
+            extra[time_col] = to_utc(extra[time_col])
             parts.append(extra)
 
     merged = pd.concat(parts, ignore_index=True)

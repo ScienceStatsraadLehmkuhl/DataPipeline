@@ -10,6 +10,7 @@ import pandas as pd
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
 from DataPipeline.main_globals import CRUISE as DEFAULT_CRUISE
 from DataPipeline.main_globals import INTERVALS, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
+from DataPipeline.preprocessing import TIME_FORMAT, to_utc
 
 # ---- Paths ----
 PROCESSED_DATA_ROOT = Path(
@@ -94,7 +95,10 @@ def combine_and_sort(files_with_leg: List[Tuple[str, Path]], time_col: str = "ti
     out = pd.concat(dfs, ignore_index=True)
 
     if time_col in out.columns:
-        out["__time_dt"] = pd.to_datetime(out[time_col], errors="coerce", utc=True)
+        # Sort on the parsed time, and write it back in the canonical format
+        # (leg files written before it was introduced may use another one).
+        out["__time_dt"] = to_utc(out[time_col])
+        out[time_col] = out["__time_dt"].dt.strftime(TIME_FORMAT)
         out = out.sort_values("__time_dt", kind="mergesort").drop(columns="__time_dt")
     else:
         print(f"Warning: no '{time_col}' column found; leaving unsorted.")

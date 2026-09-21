@@ -30,7 +30,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 from input_tools_ek80_adcp import exclude_ek80_adcp_channels
-from preprocessing import add_canonical_time
+from preprocessing import add_canonical_time, format_time
 
 
 RELEVANT_INPUT_EXTS_EK80_ECHOSOUNDER = (".raw",)
@@ -233,6 +233,8 @@ def process_ek80_echosounder_raw_file(
 
     df = _extract_easy_parameters(ed, raw_filename)
     df = add_canonical_time(df)
+    if "time" in df.columns:
+        df["time"] = format_time(df["time"])
     csv_path = os.path.join(csv_folder_name, f"{raw_filename}.csv")
     df.to_csv(csv_path, index=False)
 
@@ -320,6 +322,10 @@ def ensure_ek80_echosounder_combined_csv(
         raise FileNotFoundError(f"No EK80 per-file CSVs found to combine in {csv_folder_name}")
 
     combined_df = pd.concat((pd.read_csv(f) for f in csv_files), ignore_index=True)
+    # Per-file CSVs written before the canonical format may still carry the
+    # old mixed-precision time strings; normalise them here.
+    if "time" in combined_df.columns:
+        combined_df["time"] = format_time(combined_df["time"])
     os.makedirs(exp_folder_name, exist_ok=True)
     combined_df.to_csv(combined_path, index=False)
 

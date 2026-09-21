@@ -26,6 +26,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
+from DataPipeline.preprocessing import to_utc
+
 DEPTH_COL = "pressure_dbar"
 DEPTH_LABEL = "Depth (dbar ≈ m)"
 
@@ -113,7 +115,7 @@ def cast_table(df):
 
 def prepare_frame(df):
     df = df.copy()
-    df["time"] = pd.to_datetime(df["time"], errors="coerce", utc=True)
+    df["time"] = to_utc(df["time"])
     df[DEPTH_COL] = pd.to_numeric(df[DEPTH_COL], errors="coerce")
     return df.dropna(subset=[DEPTH_COL])
 

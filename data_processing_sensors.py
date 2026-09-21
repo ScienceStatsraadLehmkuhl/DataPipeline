@@ -8,7 +8,7 @@ from DataPipeline.input_tools import *
 from DataPipeline.cleaning_Ferrybox import cleaning
 
 from DataPipeline.globals import RENAME_COLUMNS, get_categorical_codes
-from DataPipeline.preprocessing import TIME_ALIAS
+from DataPipeline.preprocessing import TIME_ALIAS, to_utc
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -65,7 +65,7 @@ def _try_load_unique_gga_df(cleaned_csv: str, *, time_col: str = "time") -> pd.D
 
     gga_df = pd.read_csv(matches[0])
     if time_col in gga_df.columns:
-        gga_df[time_col] = pd.to_datetime(gga_df[time_col], errors="coerce")
+        gga_df[time_col] = to_utc(gga_df[time_col])
         gga_df = gga_df.sort_values(by=time_col)
     return gga_df
 
@@ -77,15 +77,8 @@ def add_gps_coordinates_from_df(df, gga_df, time_col="time",
     df = df.copy()
     gps = gga_df.copy()
 
-    df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
-    # A merged-GPS CSV mixes "...:30+00:00" and "...:30.249000+00:00" rows;
-    # default inference locks onto the first row's format and turns every
-    # row of the other kind into NaT (silently dropped below). Try ISO8601
-    # first, which handles both, and only then fall back to inference.
-    try:
-        gps[gps_time_col] = pd.to_datetime(gps[gps_time_col], format="ISO8601")
-    except (ValueError, TypeError):
-        gps[gps_time_col] = pd.to_datetime(gps[gps_time_col], errors="coerce")
+    df[time_col] = to_utc(df[time_col])
+    gps[gps_time_col] = to_utc(gps[gps_time_col])
 
     # prep gps -- rows without a usable position must not take part in the
     # "nearest" match, or they would shadow a valid neighbouring fix
@@ -136,7 +129,7 @@ def subsample(df: pd.DataFrame, freq: str, time_col: str = "time", categorical_c
         raise KeyError(f"Cannot resample: '{time_col}' not in columns")
 
     out = df.copy()
-    out[time_col] = pd.to_datetime(out[time_col], errors="coerce")
+    out[time_col] = to_utc(out[time_col])
     out = out.dropna(subset=[time_col])
 
     # Keep only numeric for mean aggregation (common expectation for averaging)
@@ -228,7 +221,7 @@ def data_process(
         if rename_map is not None:
             frame = keep_and_rename(frame, rename_map, extra_keep=extra_keep)
         if time_col in frame.columns:
-            frame[time_col] = pd.to_datetime(frame[time_col], errors="coerce")
+            frame[time_col] = to_utc(frame[time_col])
             frame = frame.sort_values(by=time_col)
         return coerce_numeric_columns(frame, time_col=time_col, exclude=exclude_numeric_cols)
 

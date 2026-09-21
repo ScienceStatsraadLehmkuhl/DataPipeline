@@ -2,6 +2,8 @@ import pandas as pd
 from functools import lru_cache
 from pathlib import Path
 
+from DataPipeline.preprocessing import to_utc
+
 def get_logsheet_paths(cruise):
     root = Path(f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/data_entries")
 
@@ -13,18 +15,9 @@ def get_logsheet_paths(cruise):
 
 
 
-def to_canonical_utc_datetime(s: pd.Series, *, utc: bool = True, dayfirst: bool = False) -> pd.Series:
-    s = s.copy()
-
-    if pd.api.types.is_numeric_dtype(s):
-        vals = pd.to_numeric(s.dropna(), errors="coerce")
-        med = vals.abs().median() if len(vals) else 0
-        unit = "ms" if med > 1e11 else "s"
-        dt = pd.to_datetime(s, unit=unit, utc=utc, errors="coerce")
-    else:
-        dt = pd.to_datetime(s, utc=utc, errors="coerce", dayfirst=dayfirst)
-
-    return dt
+def to_canonical_utc_datetime(s: pd.Series, *, utc: bool = True, dayfirst: bool = True) -> pd.Series:
+    # `utc` is kept in the signature for callers but everything is UTC.
+    return to_utc(s, dayfirst=dayfirst)
 
 
 

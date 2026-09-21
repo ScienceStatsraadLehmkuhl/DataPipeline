@@ -13,7 +13,8 @@ def get_time_from_filename(filename, nrows, freq="1s", utc=True):
     Parameters
     ----------
     filename : str or Path
-        File path or filename containing a timestamp of the form YYYYMMDDHHMM.
+        File path or filename containing a timestamp of the form YYYYMMDDHHMM
+        or DDMMYYYYHHMM.
     nrows : int
         Number of timestamps to generate.
     freq : str, default="1s"
@@ -40,11 +41,17 @@ def get_time_from_filename(filename, nrows, freq="1s", utc=True):
             f"No YYYYMMDDHHMM timestamp found in filename '{basename}'."
         )
 
-    start = pd.to_datetime(
-        match.group(1),
-        format="%Y%m%d%H%M",
-        utc=utc,
-    )
+    # yyyymmddHHMM first, then ddmmyyyyHHMM (read as yyyymmdd a ddmmyyyy value
+    # has month "19"/"20", so the two can't be confused for 19xx/20xx years).
+    start = pd.NaT
+    for fmt in ("%Y%m%d%H%M", "%d%m%Y%H%M"):
+        start = pd.to_datetime(match.group(1), format=fmt, utc=utc, errors="coerce")
+        if pd.notna(start):
+            break
+    if pd.isna(start):
+        raise ValueError(
+            f"'{match.group(1)}' in filename '{basename}' is neither YYYYMMDDHHMM nor DDMMYYYYHHMM."
+        )
 
     return pd.date_range(
         start=start,

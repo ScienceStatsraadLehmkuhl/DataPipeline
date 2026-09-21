@@ -38,7 +38,7 @@ from DataPipeline.input_tools import (
     _stale_raw_files,
     _process_raw_files,
 )
-from DataPipeline.preprocessing import from_csvs_to_csv
+from DataPipeline.preprocessing import from_csvs_to_csv, to_utc
 from DataPipeline.data_processing_sensors import (
     keep_and_rename,
     coerce_numeric_columns,
@@ -187,7 +187,7 @@ def process_ctd_leg(cruise, leg, gga_df, gps_source_path, leg_start_end_path, so
 
     # --- 3. rename/whitelist, parse time, coerce numerics ---
     df = keep_and_rename(df, RENAME_COLUMNS[EXPERIMENT][INSTRUMENT], extra_keep=extra_keep)
-    df["time"] = pd.to_datetime(df["time"], errors="coerce")
+    df["time"] = to_utc(df["time"])
     # Stable sort: casts can share a start time, and the default quicksort
     # would interleave their scans (scrambling every profile).
     df = df.sort_values("time", kind="mergesort")
