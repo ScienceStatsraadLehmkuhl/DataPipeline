@@ -20,7 +20,7 @@ from DataPipeline.plotters_by_leg import process_fig
 from DataPipeline.plotters_ctd import (
     prepare_frame, cast_table, plot_station_profile, plot_leg_profiles, plot_expedition_profiles,
 )
-from DataPipeline.plot_all_legs import expedition_figures_root
+from DataPipeline.plotters_all_legs import expedition_figures_root
 from DataPipeline.main_process_ctd import EXPERIMENT, INSTRUMENT
 from DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
 

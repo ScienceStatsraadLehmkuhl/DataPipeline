@@ -6,7 +6,7 @@ from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, ge
 from DataPipeline.input_tools import input_folders_processer
 from DataPipeline.plotters_by_leg import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
 from DataPipeline.manual_data_read import get_logsheet_paths
-from DataPipeline.plot_all_legs import plot_expedition_report
+from DataPipeline.plotters_all_legs import plot_expedition_report
 from DataPipeline.main_globals import CRUISE, LEG, DEFAULT_PLOT_TYPES, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 from pathlib import Path
 

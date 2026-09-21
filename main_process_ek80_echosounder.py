@@ -6,8 +6,8 @@ from pathlib import Path
 # Bare imports below (not DataPipeline.xxx) so this module can still be run
 # standalone from inside DataPipeline/. Ensure this file's own directory is on
 # sys.path so the same bare imports also resolve when this module is instead
-# imported as DataPipeline.main_processing_ek80_echosounder (e.g. from
-# DataPipeline.main_processing_acoustics) -- same fix as
+# imported as DataPipeline.main_process_ek80_echosounder (e.g. from
+# DataPipeline.main_process_acoustics) -- same fix as
 # DataPipeline/gap_analysis.py and DataPipeline/input_tools_ek80_echosounder.py.
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:

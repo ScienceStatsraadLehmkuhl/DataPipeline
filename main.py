@@ -9,7 +9,7 @@ from DataPipeline.globals import LEGS
 from DataPipeline.cli import parse_args
 from DataPipeline.combine_dataset_new import combine_all_intervals
 from DataPipeline.gap_analysis import run_gap_analysis
-from DataPipeline.main_processing_acoustics import run_processing_acoustics
+from DataPipeline.main_process_acoustics import run_processing_acoustics
 
 
 if __name__ == "__main__":

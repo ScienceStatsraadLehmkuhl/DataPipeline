@@ -254,7 +254,7 @@ def run_processing(
         if isinstance(LEGS, (list, tuple, set)) and current_leg not in LEGS:
             print(f"[WARN] leg='{current_leg}' not found in LEGS (continuing anyway).")
 
-        # ACOUSTIC has its own pipeline (main_processing_acoustics.py): raw acoustic
+        # ACOUSTIC has its own pipeline (main_process_acoustics.py): raw acoustic
         # acquisition doesn't fit the generic zip/json/csv/cnv import this loop does
         # for every other experiment.
         experiments = [e for e in EXPERIMENTS if e != "ACOUSTIC"]
