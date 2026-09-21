@@ -79,7 +79,8 @@ Useful options include:
 ```text
 --cruise NAME                 Cruise folder name
 --leg LEG                     Process one leg; otherwise use configured legs
---plot-types TYPE [TYPE ...]  time, time_pts, distribution, or ferrybox_colour_pannel
+--plot-types TYPE [TYPE ...]  time, time_pts, distribution, ferrybox_colour_pannel,
+                              wind_rose, cleaning_diagnostics, gps_sources
 --no-update                   Skip regeneration of processed files
 --no-combine                  Skip cruise-wide file combination
 --no-gap-analysis             Skip gap-analysis workbooks
@@ -180,11 +181,18 @@ The normal workflow is:
 - `main.py`: workflow dispatcher and command-line entry point
 - `cli.py`: command-line argument parsing
 - `main_process_sensors.py`: per-leg processing
+- `main_process_ctd.py` / `main_plot_ctd.py` / `plotters_ctd.py`: Seabird CTD
+  profile processing and plotting (run automatically from `main.py`)
+- `main_process_acoustics.py`, `main_process_ek80_*.py`,
+  `input_tools_ek80_*.py`: separate acoustics pipeline
 - `preprocessing.py`: timestamp normalization and resampling
 - `cleaning_Ferrybox.py`: sensor-specific cleaning rules
 - `combine_dataset_new.py`: cruise-wide data combination
 - `main_plot.py`: per-leg and expedition plotting orchestration
+- `plotters_by_leg.py`: per-leg plotting functions
 - `plotters_all_legs.py`: expedition-length plots
+- `plotters_diagnostics.py`: wind rose, Ferrybox cleaning diagnostics, GPS-source plots, and the
+  expedition data-coverage timeline (drawn from the gap-analysis workbook)
 - `gap_analysis.py`: gap reports and statistics
 - `globals.py`: experiment and instrument configuration
 - `main_globals.py`: runtime defaults and filters

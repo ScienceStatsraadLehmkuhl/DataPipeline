@@ -7,8 +7,22 @@ from DataPipeline.input_tools import input_folders_processer
 from DataPipeline.plotters_by_leg import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
 from DataPipeline.manual_data_read import get_logsheet_paths
 from DataPipeline.plotters_all_legs import plot_expedition_report
+from DataPipeline.plotters_diagnostics import (
+    plot_wind_rose, plot_cleaning_diagnostics, plot_gps_sources, run_expedition_diagnostics,
+)
 from DataPipeline.main_globals import CRUISE, LEG, DEFAULT_PLOT_TYPES, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
 from pathlib import Path
+
+# Plot types drawn once per processed file from the whole frame (each gated to
+# the instrument it applies to; returns None for the others), as opposed to
+# the per-variable types handled by plot_all_reports ("time", "time_pts",
+# "distribution"). "ferrybox_colour_pannel" is handled separately below.
+DIAGNOSTIC_PLOTS = {
+    "wind_rose": plot_wind_rose,
+    "cleaning_diagnostics": plot_cleaning_diagnostics,
+    "gps_sources": plot_gps_sources,
+}
+SPECIAL_PLOT_TYPES = ("ferrybox_colour_pannel", *DIAGNOSTIC_PLOTS)
 
 
 def load_processed_frame(leg, experiment, instrument, cruise):
@@ -19,7 +33,7 @@ def load_processed_frame(leg, experiment, instrument, cruise):
         fig_png_folder_name,
         fig_pdf_folder_name,
         cleaned_output_file,
-        _output_file,
+        output_file,
         base_name,
     ) = input_folders_processer(leg, experiment, instrument, cruise=cruise)
 
@@ -28,6 +42,7 @@ def load_processed_frame(leg, experiment, instrument, cruise):
         "fig_png_folder_name": fig_png_folder_name,
         "fig_pdf_folder_name": fig_pdf_folder_name,
         "cleaned_output_file": cleaned_output_file,
+        "combined_output_file": output_file,   # the leg's combined raw CSV
         "base_name": base_name,
     }
 
@@ -45,12 +60,12 @@ def run_plotting(
     if plot_types_list is None:
         plot_types_list = ["time"]
 
-    # "ferrybox_colour_pannel" is handled as a special case below (once per
-    # cleaned file, using the full dataframe) rather than through
-    # plot_all_reports (which dispatches per-variable and doesn't recognize
-    # this plot type).
+    # The special plot types are handled below (once per cleaned file, using
+    # the full dataframe) rather than through plot_all_reports (which
+    # dispatches per variable and doesn't recognize them).
     run_ferrybox_panel = "ferrybox_colour_pannel" in plot_types_list
-    per_variable_plot_types = [t for t in plot_types_list if t != "ferrybox_colour_pannel"]
+    diagnostic_plot_types = [t for t in plot_types_list if t in DIAGNOSTIC_PLOTS]
+    per_variable_plot_types = [t for t in plot_types_list if t not in SPECIAL_PLOT_TYPES]
 
     leg_start_end_path, _sooguard_log_path = get_logsheet_paths(cruise)
     legs = LEGS if leg is None else [leg]
@@ -141,7 +156,30 @@ def run_plotting(
                         except Exception as e:
                             print(f"      [SKIP] {experiment}/{instrument}/ferrybox_colour_pannel in {cleaned_path.name}: {e}")
 
-                    for variable in variables:
+                    for plot_type in diagnostic_plot_types:
+                        try:
+                            fig = DIAGNOSTIC_PLOTS[plot_type](
+                                df,
+                                experiment=experiment,
+                                instrument=instrument,
+                                plot_labels=PLOT_LABELS,
+                                leg=current_leg,
+                                leg_start_end_path=leg_start_end_path,
+                                raw_csv_path=paths.get("combined_output_file"),
+                            )
+                            if fig is not None:   # None: this plot doesn't apply to this instrument
+                                process_fig(
+                                    fig,
+                                    name=plot_type,
+                                    base_name=base_prefix,
+                                    outdir_pdf=paths.get("fig_pdf_folder_name"),
+                                    outdir_png=paths.get("fig_png_folder_name"),
+                                )
+                                print(f"      [OK] Plotted {cleaned_path.name}: {experiment}/{instrument}/{plot_type}")
+                        except Exception as e:
+                            print(f"      [SKIP] {experiment}/{instrument}/{plot_type} in {cleaned_path.name}: {e}")
+
+                    for variable in (variables if per_variable_plot_types else []):
                         if variable not in df.columns:
                             print(f"      [SKIP] Variable '{variable}' not found in {cleaned_path.name}")
                             continue
@@ -187,6 +225,11 @@ def run_expedition_plotting(
         only_experiments=only_experiments,
         only_instruments=only_instruments,
         only_variables=only_variables,
+    )
+    run_expedition_diagnostics(
+        cruise=cruise,
+        only_experiments=only_experiments,
+        only_instruments=only_instruments,
     )
 
 

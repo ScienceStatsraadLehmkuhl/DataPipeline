@@ -65,17 +65,19 @@ if __name__ == "__main__":
             only_instruments=args.only_instruments,
         )
 
+    # Gap analysis runs BEFORE the expedition plots: the data-coverage figure
+    # is drawn from the workbook it writes.
+    if args.run_gap_analysis and args.mode in ("process", "both"):
+        run_gap_analysis(
+            cruise=args.cruise,
+            leg=args.leg,
+            cache_dir=Path.home() / ".cache" / "gap_analysis" / args.cruise,
+        )
+
     if args.mode in ("plot", "both"):
         run_expedition_plotting(
             cruise=args.cruise,
             only_experiments=args.only_experiments,
             only_instruments=args.only_instruments,
             only_variables=args.only_variables,
-        )
-
-    if args.run_gap_analysis and args.mode in ("process", "both"):
-        run_gap_analysis(
-            cruise=args.cruise,
-            leg=args.leg,
-            cache_dir=Path.home() / ".cache" / "gap_analysis" / args.cruise,
         )

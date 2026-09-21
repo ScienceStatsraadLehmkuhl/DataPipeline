@@ -25,7 +25,10 @@ def parse_args():
     )
     parser.add_argument("--cruise", default=CRUISE)
     parser.add_argument("--leg", default=LEG, help="Single leg to run. Omit / use None in settings to run all legs.")
-    parser.add_argument("--plot-types", nargs="+", default=DEFAULT_PLOT_TYPES)
+    parser.add_argument(
+        "--plot-types", nargs="+", default=DEFAULT_PLOT_TYPES,
+        help="time, time_pts, distribution, ferrybox_colour_pannel, wind_rose, cleaning_diagnostics, gps_sources.",
+    )
     parser.add_argument("--no-update", dest="update", action="store_false", help="Skip data update and use existing processed files.")
     parser.add_argument("--no-combine", dest="run_combine", action="store_false", default=True, help="Skip the dataset-combining step when running the main workflow.")
     parser.add_argument("--no-gap-analysis", dest="run_gap_analysis", action="store_false", default=True, help="Skip the gap analysis step when running the main workflow.")

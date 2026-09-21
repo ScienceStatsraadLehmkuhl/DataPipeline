@@ -61,7 +61,15 @@ INTERVALS = ["1D", "1h", "5min"]    # add "3min", "1min", "cleaned" as needed
 # Plotting
 # ============================================================
 
-DEFAULT_PLOT_TYPES = ["time", "time_pts", "ferrybox_colour_pannel"]
+## Per-variable:  "time", "time_pts", "distribution" (one figure per variable per leg)
+## Per-instrument (once per leg, each only applies to its own instrument):
+##   "ferrybox_colour_pannel"  Ferrybox_CTD 6-panel overview
+##   "wind_rose"               GMX560 corrected wind
+##   "cleaning_diagnostics"    Ferrybox_CTD raw vs cleaned (spikes, removed windows)
+##   "gps_sources"             GPS-MERGED-SOURCES track/timeline/coverage by source
+## The expedition-wide figures (time series, data coverage, GPS source summary)
+## are always drawn by the plot step and don't depend on this list.
+DEFAULT_PLOT_TYPES = ["time", "time_pts", "ferrybox_colour_pannel", "wind_rose", "cleaning_diagnostics", "gps_sources"]
 
 
 # ============================================================

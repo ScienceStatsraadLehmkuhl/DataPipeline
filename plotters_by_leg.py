@@ -13,6 +13,7 @@ import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
 from DataPipeline.globals import PLOT_LABELS, get_categorical_codes
 from DataPipeline.manual_data_read import  load_leg_windows
+from DataPipeline.preprocessing import to_utc
 
 
 def get_plot_label(plot_labels, experiment, instrument, key, default=None):
@@ -38,30 +39,152 @@ def get_leg_window(leg_start_end_path: str, leg: int, *, sheet_name=0):
     end   = row.iloc[0]["end"]
     return start, end
 
-def plot_property_distribution(df, column_name, bins=30):
+# Chart colours (dataviz reference palette, light surface). Series identity
+# uses the categorical slots in fixed order; text wears ink tokens, never a
+# series colour; NEUTRAL is the recessive baseline for "everything else".
+PLOT_COLORS = {
+    "blue":    "#2a78d6",   # categorical slot 1
+    "orange":  "#eb6834",   # slot 2
+    "aqua":    "#1baf7a",   # slot 3
+    "yellow":  "#eda100",   # slot 4
+    "ink":     "#0b0b0b",
+    "muted":   "#52514e",
+    "neutral": "#8a8985",
+    "track":   "#e6e5e1",
+}
+
+_DIST_RC = {
+    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 9,
+    "xtick.labelsize": 8, "ytick.labelsize": 8, "axes.linewidth": 0.8,
+    "pdf.fonttype": 42, "ps.fonttype": 42,
+}
+
+
+def _leg_window_naive(leg, leg_start_end_path, sheet_name=0):
+    """(start, end) of a leg as tz-naive UTC Timestamps (the plots' time axes are tz-naive UTC)."""
+    start, end = get_leg_window(leg_start_end_path, leg, sheet_name=sheet_name)
+    out = []
+    for ts in (pd.Timestamp(start), pd.Timestamp(end)):
+        out.append(ts.tz_convert("UTC").tz_localize(None) if ts.tzinfo else ts)
+    return tuple(out)
+
+
+def plot_property_distribution(
+    df,
+    column_name,
+    bins=30,
+    time_column="time",
+    experiment=None,
+    instrument=None,
+    plot_labels=None,
+    leg=None,
+    leg_start_end_path=None,
+    leg_sheet_name=0,
+    clip_to_leg_window=True,
+):
+    """
+    Distribution of one variable: box plot over histogram, or a bar chart of
+    shares for a code-valued column (e.g. precipitation type).
+
+    Like the time plots, only data inside the leg window counts when `leg` is
+    given (processed files are not trimmed to it).
+    """
     if column_name not in df.columns:
         raise ValueError(f"Column '{column_name}' not found in DataFrame.")
 
-    x = pd.to_numeric(df[column_name], errors="coerce").dropna()
+    if plot_labels is None:
+        plot_labels = PLOT_LABELS
+    label = get_plot_label(plot_labels, experiment, instrument, column_name)
 
-    fig = plt.figure(figsize=(6.5, 4.0))
-    gs = fig.add_gridspec(nrows=2, ncols=1, height_ratios=[1, 4], hspace=0.05)
+    d = df
+    if clip_to_leg_window and leg is not None and time_column in df.columns:
+        if leg_start_end_path is None:
+            raise ValueError("If leg is provided, leg_start_end_path must also be provided.")
+        start, end = _leg_window_naive(leg, leg_start_end_path, leg_sheet_name)
+        t = to_utc(df[time_column]).dt.tz_localize(None)
+        d = df.loc[(t >= start) & (t <= end)]
+        if d.empty:
+            raise ValueError(
+                "After clipping to the leg window, no data remains. "
+                "Check leg number, time ranges, and timezone consistency."
+            )
 
-    ax_box = fig.add_subplot(gs[0])
-    ax_hist = fig.add_subplot(gs[1], sharex=ax_box)
+    x = pd.to_numeric(d[column_name], errors="coerce").dropna()
+    if x.empty:
+        raise ValueError(f"No numeric values in '{column_name}' to plot.")
 
-    ax_box.boxplot(x.values, vert=False, widths=0.7, showfliers=False)
-    ax_box.set_yticks([])
-    ax_box.tick_params(axis="x", labelbottom=False)
+    title = f"Distribution of {label}" + (f" - LEG {leg}" if leg is not None else "")
+    category_names = get_categorical_codes(experiment, instrument).get(column_name)
 
-    ax_hist.hist(x.values, bins=bins, edgecolor="black", linewidth=0.6)
-    ax_hist.set_title(f"Distribution of '{column_name}'")
-    ax_hist.set_xlabel(column_name)
-    ax_hist.set_ylabel("Count")
-    ax_hist.grid(True, axis="y", alpha=0.3)
+    with mpl.rc_context(_DIST_RC):
+        if category_names:
+            return _plot_category_shares(x, category_names, label, title)
 
+        ink, muted = PLOT_COLORS["ink"], PLOT_COLORS["muted"]
+        fig = plt.figure(figsize=(6.5, 4.2))
+        gs = fig.add_gridspec(nrows=2, ncols=1, height_ratios=[1, 4], hspace=0.05)
+        ax_box = fig.add_subplot(gs[0])
+        ax_hist = fig.add_subplot(gs[1], sharex=ax_box)
+
+        ax_box.boxplot(
+            x.values, vert=False, widths=0.7, showfliers=False,
+            boxprops=dict(color=ink, linewidth=0.8), whiskerprops=dict(color=ink, linewidth=0.8),
+            capprops=dict(color=ink, linewidth=0.8), medianprops=dict(color=ink, linewidth=1.4),
+        )
+        ax_box.set_yticks([])
+        ax_box.tick_params(axis="x", labelbottom=False)
+        median = x.median()
+        q1, q3 = x.quantile(0.25), x.quantile(0.75)
+        ax_box.set_title(title, loc="left", color=ink)
+        ax_box.set_title(
+            f"n = {len(x):,}   median = {median:.4g}   IQR = {q1:.4g} to {q3:.4g}",
+            loc="right", fontsize=8, color=muted,
+        )
+
+        ax_hist.hist(x.values, bins=bins, color=PLOT_COLORS["blue"], edgecolor="white", linewidth=0.8)
+        ax_hist.axvline(median, color=ink, linewidth=1.0, linestyle="--")
+        ax_hist.set_xlabel(label)
+        ax_hist.set_ylabel("Count")
+        ax_hist.grid(True, axis="y", color=PLOT_COLORS["track"], linewidth=0.6)
+        ax_hist.set_axisbelow(True)
+        for ax in (ax_box, ax_hist):
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+
+        fig.tight_layout()
+        return fig, (ax_box, ax_hist)
+
+
+def _plot_category_shares(x, category_names, label, title):
+    """Bar chart of how often each code occurs (percent), names on the y axis."""
+    codes = x.round().astype(int)
+    counts = codes.value_counts().sort_index()
+    share = counts / counts.sum() * 100
+
+    fig, ax = plt.subplots(figsize=(6.5, max(2.6, 0.42 * len(counts) + 1.4)))
+    ypos = np.arange(len(counts))
+    ax.barh(ypos, share.values, color=PLOT_COLORS["blue"], edgecolor="white", linewidth=0.8, height=0.7)
+    ax.set_yticks(ypos)
+    ax.set_yticklabels([
+        f"{int(c):02d}  " + textwrap.fill(category_names.get(int(c), f"Code {int(c)}"), 34)
+        for c in counts.index
+    ])
+    ax.invert_yaxis()
+    for y, pct, n in zip(ypos, share.values, counts.values):
+        text = f"{pct:.1f}%  (n = {n:,})"
+        if pct > 60:   # a long bar leaves no room beyond it: label inside its end
+            ax.text(pct - 1.0, y, text, va="center", ha="right", fontsize=8, color="white")
+        else:
+            ax.text(pct + 1.0, y, text, va="center", ha="left", fontsize=8, color=PLOT_COLORS["muted"])
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("Share of records (%)")
+    ax.set_title(title, loc="left", color=PLOT_COLORS["ink"])
+    ax.grid(True, axis="x", color=PLOT_COLORS["track"], linewidth=0.6)
+    ax.set_axisbelow(True)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
-    return fig, (ax_box, ax_hist)
+    return fig, ax
 
 
 PUB_LAYOUT = {
@@ -142,7 +265,7 @@ def plot_property_over_time_pub(
         raise ValueError(f"DataFrame must contain '{time_column}' and '{property_column}' columns")
 
     d = df.copy()
-    d[time_column] = pd.to_datetime(d[time_column], utc=True, errors="coerce").dt.tz_localize(None)
+    d[time_column] = to_utc(d[time_column]).dt.tz_localize(None)
     d = d.dropna(subset=[time_column, property_column]).sort_values(time_column)
 
     # Resolve x-limits (xlim overrides leg window)
@@ -318,10 +441,11 @@ _SOO_GUARD_COLORS = {
 }
 
 
-def _plot_with_gaps(ax, group, time_column, ycol, color, label=None, max_gap_seconds=60):
+def _plot_with_gaps(ax, group, time_column, ycol, color, label=None, max_gap_seconds=60, **plot_kwargs):
     """
     Plot ycol vs time_column, breaking the line wherever the time gap
     exceeds max_gap_seconds, so dropouts aren't bridged by a straight line.
+    Extra keyword arguments (e.g. linewidth) go to ax.plot.
     """
     valid = ~(group[time_column].isna() | group[ycol].isna())
     g = group.loc[valid]
@@ -337,7 +461,7 @@ def _plot_with_gaps(ax, group, time_column, ycol, color, label=None, max_gap_sec
     for seg in segments:
         seg = list(seg)
         if len(seg) > 1:
-            ax.plot(g.loc[seg, time_column], g.loc[seg, ycol], color=color, label=first_label)
+            ax.plot(g.loc[seg, time_column], g.loc[seg, ycol], color=color, label=first_label, **plot_kwargs)
         first_label = None
 
 
@@ -378,7 +502,7 @@ def plot_ferrybox_ctd_panel(
         raise ValueError(f"DataFrame must contain '{time_column}' column")
 
     d = df.copy()
-    d[time_column] = pd.to_datetime(d[time_column], utc=True, errors="coerce").dt.tz_localize(None)
+    d[time_column] = to_utc(d[time_column]).dt.tz_localize(None)
     d = d.dropna(subset=[time_column]).sort_values(time_column)
 
     start_end = None
@@ -605,8 +729,15 @@ def plot_all_reports(
             fig, axes = plot_property_distribution(
                 df,
                 column_name=variable,
+                experiment=experiment,
                 instrument=instrument,
                 plot_labels=plot_labels,
+
+                # pass through (clips to the leg window like the time plots):
+                leg=leg,
+                leg_start_end_path=leg_start_end_path,
+                leg_sheet_name=leg_sheet_name,
+                clip_to_leg_window=clip_to_leg_window,
             )
         else:
             raise ValueError(f"Unknown plot_type '{plot_type}'. Use 'time', 'time_pts', or 'distribution'.")
