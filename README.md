@@ -227,3 +227,11 @@ Top level:
 	of a workflow.
 - Generated files can be large, so check the configured output directory
 	before starting a full cruise run.
+
+## Authors and contributors
+
+- **Natacha Fabregas**: all code development of the data pipeline.
+- **Thomas Rost** ([thomas.m.rost@gmail.com](mailto:thomas.m.rost@gmail.com)):
+	designed the original hydrophone anomaly detection pipeline, which
+	Natacha Fabregas then integrated into the data pipeline
+	(`acoustics/hydrophone_anomalies.py`).

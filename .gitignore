@@ -2,6 +2,4 @@ __pycache__/
 *.pyc
 *.pyo
 .vscode
-tests
-Individual_codes
-jupyter-old_files
+one-time-run-code
