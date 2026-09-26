@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import itertools
-import sys
 import time
 from pathlib import Path
 from typing import Iterable
@@ -12,17 +11,13 @@ import pandas as pd
 
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
 from DataPipeline.main_globals import CRUISE, GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT, LEG
-from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
-from DataPipeline.preprocessing import to_utc
+from DataPipeline.ingest.manual_data_read import get_logsheet_paths, load_leg_windows
+from DataPipeline.ingest.preprocessing import to_utc
 
 # Bump when the time parsing changes, so parquet caches built by the old logic are ignored.
 CACHE_VERSION = "v2"
 
 TIMERS = {"exists_check": 0.0, "csv_read": 0.0, "parse_and_gaps": 0.0}
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
 
 
 GAP_COLUMNS = [

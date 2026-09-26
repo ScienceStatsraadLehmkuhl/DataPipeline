@@ -3,11 +3,11 @@ import os
 import pandas as pd
 
 from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
-from DataPipeline.input_tools import input_folders_processer
-from DataPipeline.plotters_by_leg import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
-from DataPipeline.manual_data_read import get_logsheet_paths
-from DataPipeline.plotters_all_legs import plot_expedition_report
-from DataPipeline.plotters_diagnostics import (
+from DataPipeline.ingest.input_tools import input_folders_processer
+from DataPipeline.plotting.plotters_by_leg import plot_all_reports, plot_ferrybox_ctd_panel, process_fig
+from DataPipeline.ingest.manual_data_read import get_logsheet_paths
+from DataPipeline.plotting.plotters_all_legs import plot_expedition_report
+from DataPipeline.plotting.plotters_diagnostics import (
     plot_wind_rose, plot_cleaning_diagnostics, plot_gps_sources, run_expedition_diagnostics,
 )
 from DataPipeline.main_globals import CRUISE, LEG, DEFAULT_PLOT_TYPES, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES

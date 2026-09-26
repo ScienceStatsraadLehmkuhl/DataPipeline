@@ -20,7 +20,7 @@ conversion is the expensive step and, per DataPipeline/main_globals.py,
 full EK80 processing is often deferred to its own separate run anyway.
 Files converted here are reused (not reconverted) whenever that full run
 happens later, via the existing staleness check in
-DataPipeline.input_tools_ek80_echosounder.ensure_ek80_echosounder_combined_csv.
+DataPipeline.acoustics.input_tools_ek80_echosounder.ensure_ek80_echosounder_combined_csv.
 
 Because EK80/Ferrybox positions are only ever pulled from inside a
 confirmed GGA gap, there is no overlap with GGA's own coverage and thus no
@@ -45,13 +45,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from DataPipeline.gap_analysis import analyze_gaps_for_file
-from DataPipeline.manual_data_read import load_leg_windows
-from DataPipeline.fromzipxmltojson import convert_zips_to_csvs, read_csv
-from DataPipeline.input_tools import RELEVANT_INPUT_EXTS, give_me_full_folder_name
-from DataPipeline.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
-from DataPipeline.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
-from DataPipeline.preprocessing import ensure_time, to_utc
+from DataPipeline.products.gap_analysis import analyze_gaps_for_file
+from DataPipeline.ingest.manual_data_read import load_leg_windows
+from DataPipeline.ingest.fromzipxmltojson import convert_zips_to_csvs, read_csv
+from DataPipeline.ingest.input_tools import RELEVANT_INPUT_EXTS, give_me_full_folder_name
+from DataPipeline.acoustics.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
+from DataPipeline.acoustics.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
+from DataPipeline.ingest.preprocessing import ensure_time, to_utc
 
 
 POSITION_COLUMNS = ["time", "latitude_deg", "longitude_deg", "source"]
@@ -119,7 +119,7 @@ def find_gga_gaps(
 ) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
     """
     Gaps (start, current) in the already-processed GGA cleaned CSV, reusing
-    DataPipeline.gap_analysis.analyze_gaps_for_file -- same gap-finding logic
+    DataPipeline.products.gap_analysis.analyze_gaps_for_file -- same gap-finding logic
     as the standalone gap-analysis report, just called directly in-memory
     (no workbook written for GGA here).
 

@@ -1,23 +1,12 @@
 import os
-import sys
 import traceback
 from pathlib import Path
 
-# Bare imports below (not DataPipeline.xxx) so this module can still be run
-# standalone from inside DataPipeline/. Ensure this file's own directory is on
-# sys.path so the same bare imports also resolve when this module is instead
-# imported as DataPipeline.main_process_ek80_echosounder (e.g. from
-# DataPipeline.main_process_acoustics) -- same fix as
-# DataPipeline/gap_analysis.py and DataPipeline/input_tools_ek80_echosounder.py.
-_SCRIPT_DIR = Path(__file__).resolve().parent
-if str(_SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPT_DIR))
-
-from globals import LEGS
-from input_tools import input_folders_processer
-from input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
-from input_tools_ek80_echosounder import ensure_ek80_echosounder_combined_csv
-from main_globals import *
+from DataPipeline.globals import LEGS
+from DataPipeline.ingest.input_tools import input_folders_processer
+from DataPipeline.acoustics.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
+from DataPipeline.acoustics.input_tools_ek80_echosounder import ensure_ek80_echosounder_combined_csv
+from DataPipeline.main_globals import CRUISE, LEG
 
 
 EXPERIMENT = "ACOUSTIC"

@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 from pathlib import Path
-from DataPipeline.fromzipxmltojson import convert_zips_to_csvs
-from DataPipeline.fileformatconversion import  convert_jsons_to_csvs, copy_csv_files, convert_cnv_to_csv
-from DataPipeline.preprocessing import from_csvs_to_csv, format_time
+from DataPipeline.ingest.fromzipxmltojson import convert_zips_to_csvs
+from DataPipeline.ingest.fileformatconversion import  convert_jsons_to_csvs, copy_csv_files, convert_cnv_to_csv
+from DataPipeline.ingest.preprocessing import from_csvs_to_csv, format_time
 
 
 def input_folders_processer(leg, experiment, instrument, cruise):

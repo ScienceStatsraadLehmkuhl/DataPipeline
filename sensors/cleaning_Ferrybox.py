@@ -18,8 +18,8 @@ instrument == "Ferrybox_CTD" and are no-ops otherwise:
 """
 import pandas as pd
 import numpy as np
-from DataPipeline.manual_data_read import load_leg_windows, load_pressure_removal_rules
-from DataPipeline.preprocessing import to_utc
+from DataPipeline.ingest.manual_data_read import load_leg_windows, load_pressure_removal_rules
+from DataPipeline.ingest.preprocessing import to_utc
 from DataPipeline.main_globals import (
     PRESSURE_REMOVAL_BUFFER_MINUTES,
     HAMPEL_WINDOW_MINUTES,

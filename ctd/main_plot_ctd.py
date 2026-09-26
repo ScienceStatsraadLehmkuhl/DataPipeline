@@ -14,14 +14,14 @@ import os
 import pandas as pd
 
 from DataPipeline.globals import LEGS
-from DataPipeline.input_tools import input_folders_processer
-from DataPipeline.data_processing_sensors import _derive_geotag_paths
-from DataPipeline.plotters_by_leg import process_fig
-from DataPipeline.plotters_ctd import (
+from DataPipeline.ingest.input_tools import input_folders_processer
+from DataPipeline.sensors.data_processing_sensors import _derive_geotag_paths
+from DataPipeline.plotting.plotters_by_leg import process_fig
+from DataPipeline.ctd.plotters_ctd import (
     prepare_frame, cast_table, plot_station_profile, plot_leg_profiles, plot_expedition_profiles,
 )
-from DataPipeline.plotters_all_legs import expedition_figures_root
-from DataPipeline.main_process_ctd import EXPERIMENT, INSTRUMENT
+from DataPipeline.plotting.plotters_all_legs import expedition_figures_root
+from DataPipeline.ctd.main_process_ctd import EXPERIMENT, INSTRUMENT
 from DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
 
 

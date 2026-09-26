@@ -4,11 +4,11 @@ Set of functions to work on data
 import pandas as pd
 import os
 import numpy as np
-from DataPipeline.input_tools import *
-from DataPipeline.cleaning_Ferrybox import cleaning
+from DataPipeline.ingest.input_tools import *
+from DataPipeline.sensors.cleaning_Ferrybox import cleaning
 
 from DataPipeline.globals import RENAME_COLUMNS, get_categorical_codes, get_db_level_columns
-from DataPipeline.preprocessing import TIME_ALIAS, to_utc
+from DataPipeline.ingest.preprocessing import TIME_ALIAS, to_utc
 import numpy as np
 import pandas as pd
 from pathlib import Path

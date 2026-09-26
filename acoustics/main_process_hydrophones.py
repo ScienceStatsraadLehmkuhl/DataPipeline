@@ -16,18 +16,18 @@ import traceback
 
 import pandas as pd
 
-from DataPipeline.data_processing_sensors import data_process
+from DataPipeline.sensors.data_processing_sensors import data_process
 from DataPipeline.globals import HYDROPHONE_SERIALS, LEGS
-from DataPipeline.input_tools import _has_output_csvs, input_folders_processer
-from DataPipeline.input_tools_hydrophones import (
+from DataPipeline.ingest.input_tools import _has_output_csvs, input_folders_processer
+from DataPipeline.acoustics.input_tools_hydrophones import (
     HYDROPHONE_RAW_SUBFOLDER,
     TEXT_COLUMNS,
     ensure_hydrophone_combined_csv,
     list_spectrum_txts,
 )
 from DataPipeline.main_globals import CRUISE, LEG
-from DataPipeline.main_process_sensors import _load_existing_gps
-from DataPipeline.manual_data_read import get_logsheet_paths
+from DataPipeline.sensors.main_process_sensors import _load_existing_gps
+from DataPipeline.ingest.manual_data_read import get_logsheet_paths
 
 EXPERIMENT = "ACOUSTIC"
 

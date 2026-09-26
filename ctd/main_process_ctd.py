@@ -27,7 +27,7 @@ from pathlib import Path
 import pandas as pd
 
 from DataPipeline.globals import RENAME_COLUMNS, PREFERRED_TIME_COLUMN
-from DataPipeline.input_tools import (
+from DataPipeline.ingest.input_tools import (
     input_folders_processer,
     ensure_combined_csv,
     load_combined_csv,
@@ -38,17 +38,17 @@ from DataPipeline.input_tools import (
     _stale_raw_files,
     _process_raw_files,
 )
-from DataPipeline.preprocessing import from_csvs_to_csv, to_utc
-from DataPipeline.data_processing_sensors import (
+from DataPipeline.ingest.preprocessing import from_csvs_to_csv, to_utc
+from DataPipeline.sensors.data_processing_sensors import (
     keep_and_rename,
     coerce_numeric_columns,
     add_gps_coordinates_from_df,
     _derive_geotag_paths,
     _stale_relative_to,
 )
-from DataPipeline.cleaning_Ferrybox import cleaning
-from DataPipeline.manual_data_read import get_logsheet_paths
-from DataPipeline.main_process_sensors import _load_existing_gps
+from DataPipeline.sensors.cleaning_Ferrybox import cleaning
+from DataPipeline.ingest.manual_data_read import get_logsheet_paths
+from DataPipeline.sensors.main_process_sensors import _load_existing_gps
 from DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
 from DataPipeline.globals import LEGS
 

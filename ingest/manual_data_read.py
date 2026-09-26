@@ -2,7 +2,7 @@ import pandas as pd
 from functools import lru_cache
 from pathlib import Path
 
-from DataPipeline.preprocessing import to_utc
+from DataPipeline.ingest.preprocessing import to_utc
 
 def get_logsheet_paths(cruise):
     root = Path(f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/data_entries")

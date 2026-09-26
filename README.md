@@ -24,7 +24,7 @@ pip install pandas numpy matplotlib openpyxl
 
 ## Data locations
 
-The default paths are configured in `input_tools.py` and
+The default paths are configured in `ingest/input_tools.py` and
 `main_globals.py`. The pipeline currently expects the raw and processed data
 shares to be mounted at:
 
@@ -94,7 +94,7 @@ Useful options include:
 Combine already processed leg files at several time intervals:
 
 ```bash
-python -m DataPipeline.combine_dataset_new \
+python -m DataPipeline.products.combine_dataset_new \
 	--cruise 2026_SaS \
 	--intervals 1min 3min 5min 1h 1D
 ```
@@ -102,13 +102,13 @@ python -m DataPipeline.combine_dataset_new \
 Create expedition-length plots from existing combined 5-minute files:
 
 ```bash
-python -m DataPipeline.plotters_all_legs --cruise 2026_SaS
+python -m DataPipeline.plotting.plotters_all_legs --cruise 2026_SaS
 ```
 
 Run gap analysis:
 
 ```bash
-python -m DataPipeline.gap_analysis --cruise 2026_SaS
+python -m DataPipeline.products.gap_analysis --cruise 2026_SaS
 ```
 
 ## Generated files
@@ -178,24 +178,46 @@ The normal workflow is:
 
 ## Project modules
 
+Top level:
+
 - `main.py`: workflow dispatcher and command-line entry point
 - `cli.py`: command-line argument parsing
-- `main_process_sensors.py`: per-leg processing
-- `main_process_ctd.py` / `main_plot_ctd.py` / `plotters_ctd.py`: Seabird CTD
-  profile processing and plotting (run automatically from `main.py`)
-- `main_process_acoustics.py`, `main_process_ek80_*.py`,
-  `input_tools_ek80_*.py`: separate acoustics pipeline
+- `globals.py`: experiment and instrument configuration
+- `main_globals.py`: runtime defaults and filters
+
+`ingest/` — reading raw files and the logsheets:
+
+- `input_tools.py`: raw/processed folder paths and per-file CSV conversion
+- `fromzipxmltojson.py`, `fileformatconversion.py`: zip/xml/json/cnv to CSV
 - `preprocessing.py`: timestamp normalization and resampling
+- `manual_data_read.py`: logsheet workbooks (leg windows, pressure-removal events)
+
+`sensors/` — the per-leg processing loop:
+
+- `main_process_sensors.py`: per-leg processing
+- `data_processing_sensors.py`: rename, geotag, clean and resample one instrument
 - `cleaning_Ferrybox.py`: sensor-specific cleaning rules
-- `combine_dataset_new.py`: cruise-wide data combination
+- `gps_gap_fill.py`: fills GGA gaps from EK80, Ferrybox and the Bridge nav log
+
+`ctd/` — Seabird CTD profile processing and plotting (run automatically from `main.py`):
+`main_process_ctd.py`, `main_plot_ctd.py`, `plotters_ctd.py`
+
+`acoustics/` — separate acoustics pipeline: `main_process_acoustics.py`,
+`main_process_ek80_*.py`, `input_tools_ek80_*.py`, and the hydrophone spectrum logs
+(`main_process_hydrophones.py`, `input_tools_hydrophones.py`)
+
+`plotting/`:
+
 - `main_plot.py`: per-leg and expedition plotting orchestration
 - `plotters_by_leg.py`: per-leg plotting functions
 - `plotters_all_legs.py`: expedition-length plots
 - `plotters_diagnostics.py`: wind rose, Ferrybox cleaning diagnostics, GPS-source plots, and the
   expedition data-coverage timeline (drawn from the gap-analysis workbook)
+
+`products/` — cruise-wide outputs built from the processed legs:
+
+- `combine_dataset_new.py`: cruise-wide data combination
 - `gap_analysis.py`: gap reports and statistics
-- `globals.py`: experiment and instrument configuration
-- `main_globals.py`: runtime defaults and filters
 
 ## Notes
 

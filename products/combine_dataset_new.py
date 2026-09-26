@@ -10,7 +10,7 @@ import pandas as pd
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
 from DataPipeline.main_globals import CRUISE as DEFAULT_CRUISE
 from DataPipeline.main_globals import INTERVALS, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
-from DataPipeline.preprocessing import TIME_FORMAT, to_utc
+from DataPipeline.ingest.preprocessing import TIME_FORMAT, to_utc
 
 # ---- Paths ----
 PROCESSED_DATA_ROOT = Path(

@@ -16,9 +16,9 @@ import pandas as pd
 
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
 from DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
-from DataPipeline.combine_dataset_new import combined_output_folder, combined_output_root, resolve_cruise
-from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
-from DataPipeline.plotters_by_leg import plot_property_over_time_pub, process_fig
+from DataPipeline.products.combine_dataset_new import combined_output_folder, combined_output_root, resolve_cruise
+from DataPipeline.ingest.manual_data_read import get_logsheet_paths, load_leg_windows
+from DataPipeline.plotting.plotters_by_leg import plot_property_over_time_pub, process_fig
 
 EXPEDITION_INTERVAL = "5min"
 # Data points are 5 min apart; break the line only on gaps well beyond that
@@ -212,7 +212,7 @@ def plot_expedition_report(
     # time series and don't come from the combined interval files, so they're
     # plotted by main_plot_ctd from the per-leg processed files. Imported here
     # because main_plot_ctd itself imports from this module.
-    from DataPipeline.main_plot_ctd import run_expedition_plotting_ctd
+    from DataPipeline.ctd.main_plot_ctd import run_expedition_plotting_ctd
     n_written += run_expedition_plotting_ctd(
         selected_cruise, only_experiments=only_experiments, only_instruments=only_instruments,
     )

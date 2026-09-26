@@ -24,14 +24,14 @@ import traceback
 
 import pandas as pd
 
-from DataPipeline.data_processing_sensors import data_process
+from DataPipeline.sensors.data_processing_sensors import data_process
 from DataPipeline.globals import HYDROPHONE_INSTRUMENTS, RENAME_COLUMNS
-from DataPipeline.input_tools import input_folders_processer
+from DataPipeline.ingest.input_tools import input_folders_processer
 from DataPipeline.main_globals import CRUISE, LEG, ONLY_ACOUSTICS
-from DataPipeline.main_process_ek80_adcp import run_processing_ek80_adcp
-from DataPipeline.main_process_ek80_echosounder import run_processing_ek80_echosounder
-from DataPipeline.main_process_hydrophones import run_processing_hydrophones
-from DataPipeline.manual_data_read import get_logsheet_paths
+from DataPipeline.acoustics.main_process_ek80_adcp import run_processing_ek80_adcp
+from DataPipeline.acoustics.main_process_ek80_echosounder import run_processing_ek80_echosounder
+from DataPipeline.acoustics.main_process_hydrophones import run_processing_hydrophones
+from DataPipeline.ingest.manual_data_read import get_logsheet_paths
 
 EXPERIMENT = "ACOUSTIC"
 

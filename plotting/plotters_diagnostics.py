@@ -32,17 +32,17 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from DataPipeline.combine_dataset_new import combined_output_root, resolve_cruise
+from DataPipeline.products.combine_dataset_new import combined_output_root, resolve_cruise
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, VARIABLES, PLOT_LABELS
-from DataPipeline.input_tools import input_folders_processer
+from DataPipeline.ingest.input_tools import input_folders_processer
 from DataPipeline.main_globals import GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT
-from DataPipeline.plotters_all_legs import (
+from DataPipeline.plotting.plotters_all_legs import (
     add_leg_markers, add_month_year_axis, expedition_figures_root, load_leg_bounds,
 )
-from DataPipeline.plotters_by_leg import (
+from DataPipeline.plotting.plotters_by_leg import (
     PLOT_COLORS, _leg_window_naive, _plot_with_gaps, get_plot_label, process_fig,
 )
-from DataPipeline.preprocessing import to_utc
+from DataPipeline.ingest.preprocessing import to_utc
 
 INK, MUTED, NEUTRAL, TRACK = (PLOT_COLORS[k] for k in ("ink", "muted", "neutral", "track"))
 BLUE, ORANGE, AQUA = PLOT_COLORS["blue"], PLOT_COLORS["orange"], PLOT_COLORS["aqua"]

@@ -2,15 +2,15 @@ import os
 from pathlib import Path
 import pandas as pd
 from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, PREFERRED_TIME_COLUMN, get_variables
-from DataPipeline.input_tools import import_and_process_sources, input_folders_processer, update_csv
-from DataPipeline.data_processing_sensors import data_process, keep_and_rename
-from DataPipeline.manual_data_read import get_logsheet_paths
-from DataPipeline.preprocessing import to_utc
+from DataPipeline.ingest.input_tools import import_and_process_sources, input_folders_processer, update_csv
+from DataPipeline.sensors.data_processing_sensors import data_process, keep_and_rename
+from DataPipeline.ingest.manual_data_read import get_logsheet_paths
+from DataPipeline.ingest.preprocessing import to_utc
 from DataPipeline.main_globals import (
     CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES,
     GGA_GAP_FILL_THRESHOLD_MINUTES, BRIDGE_GAP_FILL_THRESHOLD_MINUTES,
 )
-from DataPipeline.gps_gap_fill import (
+from DataPipeline.sensors.gps_gap_fill import (
     find_gga_gaps,
     extract_ek80_gap_positions,
     extract_ferrybox_positions,

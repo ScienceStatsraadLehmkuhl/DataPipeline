@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
 from DataPipeline.globals import PLOT_LABELS, get_categorical_codes
-from DataPipeline.manual_data_read import  load_leg_windows
-from DataPipeline.preprocessing import to_utc
+from DataPipeline.ingest.manual_data_read import  load_leg_windows
+from DataPipeline.ingest.preprocessing import to_utc
 
 
 def get_plot_label(plot_labels, experiment, instrument, key, default=None):
