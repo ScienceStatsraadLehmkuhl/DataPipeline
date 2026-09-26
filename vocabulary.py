@@ -7,6 +7,9 @@ EXPERIMENTS = ["NAVIGATION",  "OCEANOGRAPHY", "ACOUSTIC", "METEOROLOGY", "RADIAT
 # 7526 replaced 6955 on 2026_SaS.
 HYDROPHONE_SERIALS = ["6952", "6954", "6955", "7526"]
 HYDROPHONE_INSTRUMENTS = [f"Hydrophone_{sn}" for sn in HYDROPHONE_SERIALS]
+# wav anomaly-detection sources (acoustics/main_process_hydrophone_wav.py). Event
+# tables, not time series, so deliberately not listed in INSTRUMENTS below.
+HYDROPHONE_ANOMALY_SOURCES = [f"Hydrophone_{sn}_anomalies" for sn in HYDROPHONE_SERIALS]
 
 INSTRUMENTS = { "NAVIGATION": ["GGA", "HDT", "SXN23", "VTG", "ZDA", "GPS-MERGED-SOURCES"],
                 "ACOUSTIC": ["EK80-RAW", "EK80_echos_csv", "EK80_echos_ncdf", "EK80_CP300-ADCP", *HYDROPHONE_INSTRUMENTS],

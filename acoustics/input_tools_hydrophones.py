@@ -3,7 +3,7 @@ Raw-file conversion for the icListen HF hydrophones (Ocean Sonics Lucy II).
 
 Each leg's ACOUSTIC/HYDROPHONES folder mixes every hydrophone's files:
     LUF{serial}_{yyyymmdd}_{HHMMSS}.txt   5-min "Spectrum" logs (handled here)
-    LUW{serial}_{yyyymmdd}_{HHMMSS}.wav   raw audio (not processed yet)
+    LUW{serial}_{yyyymmdd}_{HHMMSS}.wav   raw audio (anomaly detection: main_process_hydrophone_wav.py)
 
 A spectrum txt is a header block ("Key <tab> value" lines under "File
 Details:", "Device Details:", "Setup:") followed by "Data:" and a

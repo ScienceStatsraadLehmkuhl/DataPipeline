@@ -4,10 +4,11 @@ Acoustics processing pipeline, run independently of "process sensors"
 raw acoustic acquisition doesn't fit its generic zip/json/csv/cnv import).
 
 Each acoustic source owns its own raw-conversion module. Only EK80's
-echosounder and ADCP channels and the hydrophones' spectrum txt logs
-(main_process_hydrophones.py, one source per serial) are implemented so far;
-Teledyne ADCP and the hydrophone wav recordings are not yet -- add their
-conversion modules and list them in ACOUSTIC_SOURCES as they land.
+echosounder and ADCP channels, the hydrophones' spectrum txt logs
+(main_process_hydrophones.py, one source per serial) and the anomaly
+detection on the hydrophone wav recordings (main_process_hydrophone_wav.py,
+Hydrophone_{serial}_anomalies) are implemented so far; Teledyne ADCP is not
+yet -- add its conversion module and list it in ACOUSTIC_SOURCES when it lands.
 
 Sources that produce a combined CSV with a time column (currently only
 EK80_echos_csv) are run through the same data_process() cleaning +
@@ -25,21 +26,23 @@ import traceback
 import pandas as pd
 
 from DataPipeline.sensors.data_processing_sensors import data_process
-from DataPipeline.vocabulary import HYDROPHONE_INSTRUMENTS, RENAME_COLUMNS
+from DataPipeline.vocabulary import HYDROPHONE_ANOMALY_SOURCES, HYDROPHONE_INSTRUMENTS, RENAME_COLUMNS
 from DataPipeline.ingest.input_tools import input_folders_processer
 from DataPipeline.settings import CRUISE, LEG, ONLY_ACOUSTICS
 from DataPipeline.acoustics.main_process_ek80_adcp import run_processing_ek80_adcp
 from DataPipeline.acoustics.main_process_ek80_echosounder import run_processing_ek80_echosounder
 from DataPipeline.acoustics.main_process_hydrophones import run_processing_hydrophones
+from DataPipeline.acoustics.main_process_hydrophone_wav import run_processing_hydrophone_wav
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths
 
 EXPERIMENT = "ACOUSTIC"
 
 # Acoustic sources implemented so far, named after their DataPipeline.vocabulary
 # INSTRUMENTS["ACOUSTIC"] slot so ONLY_ACOUSTICS filtering matches the same
-# vocabulary as ONLY_INSTRUMENTS elsewhere. Extend as Teledyne ADCP / the
-# hydrophone wav recordings get their own conversion modules.
-ACOUSTIC_SOURCES = ["EK80_echos_csv", "EK80_CP300-ADCP", *HYDROPHONE_INSTRUMENTS]
+# vocabulary as ONLY_INSTRUMENTS elsewhere (the wav anomaly sources have their
+# own names in vocabulary.HYDROPHONE_ANOMALY_SOURCES). Extend as Teledyne ADCP
+# gets its own conversion module.
+ACOUSTIC_SOURCES = ["EK80_echos_csv", "EK80_CP300-ADCP", *HYDROPHONE_INSTRUMENTS, *HYDROPHONE_ANOMALY_SOURCES]
 
 
 def _clean_and_interval_resample_echosounder(cruise, leg, combined_path, leg_start_end_path, sooguard_log_path):
@@ -119,6 +122,11 @@ def run_processing_acoustics(cruise, leg=None, only_acoustics=None, sonar_model=
     hydrophone_serials = [s.split("_", 1)[1] for s in sources if s in HYDROPHONE_INSTRUMENTS]
     if hydrophone_serials:
         run_processing_hydrophones(cruise, leg=leg, serials=hydrophone_serials)
+
+    # Slowest source (PANNs over every wav), so last
+    anomaly_serials = [s.split("_")[1] for s in sources if s in HYDROPHONE_ANOMALY_SOURCES]
+    if anomaly_serials:
+        run_processing_hydrophone_wav(cruise, leg=leg, serials=anomaly_serials)
 
 
 if __name__ == "__main__":

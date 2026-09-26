@@ -8,8 +8,8 @@ GPS-MERGED-SOURCES table, cleaning, and the _1min/_3min/_5min/_1h/_1D
 averages (dB levels averaged energetically, see vocabulary.DB_LEVEL_PREFIXES).
 cleaning() has no rules for the hydrophones, so no row or value is removed.
 
-The wav recordings (LUW*.wav) are not processed here; they get their own
-pipeline later.
+The wav recordings (LUW*.wav) are not processed here; their anomaly detection
+is main_process_hydrophone_wav.py.
 """
 import os
 import traceback
