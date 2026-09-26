@@ -122,6 +122,16 @@ def to_utc(values, *, dayfirst=True) -> pd.Series:
     out = pd.to_datetime(s, utc=True, errors="coerce", format="ISO8601")
     left = out.isna() & s.notna() & (s.astype(str).str.strip() != "")
     if left.any():
+        # _parse_compact requires the WHOLE column to share one digit length
+        # (see its docstring), so a column mixing ISO rows with compact
+        # ddmmyyyy/yyyymmdd rows fails that check for the column as a whole --
+        # retry it on just the leftover (non-ISO) subset, which is often
+        # homogeneous on its own, before falling to per-element free-text parsing.
+        compact_left = _parse_compact(s[left])
+        if compact_left is not None:
+            out.loc[left] = compact_left
+            left = out.isna() & s.notna() & (s.astype(str).str.strip() != "")
+    if left.any():
         # format="mixed" parses each element on its own (default inference
         # would lock onto the first row's format instead).
         out.loc[left] = pd.to_datetime(s[left], utc=True, errors="coerce", format="mixed", dayfirst=dayfirst)

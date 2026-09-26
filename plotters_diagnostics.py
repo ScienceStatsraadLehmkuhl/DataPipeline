@@ -35,7 +35,7 @@ from matplotlib.patches import Patch
 from DataPipeline.combine_dataset_new import combined_output_root, resolve_cruise
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, VARIABLES, PLOT_LABELS
 from DataPipeline.input_tools import input_folders_processer
-from DataPipeline.main_globals import GAP_THRESHOLD_MINUTES
+from DataPipeline.main_globals import GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT
 from DataPipeline.plotters_all_legs import (
     add_leg_markers, add_month_year_axis, expedition_figures_root, load_leg_bounds,
 )
@@ -588,9 +588,11 @@ def plot_coverage_timeline(cruise=None, only_experiments=None, only_instruments=
         add_leg_markers(ax, legs)
 
         fig.text(0.01, 1 - 0.12 / height, "Data coverage by instrument", ha="left", va="top", fontsize=11, color=INK)
+        overrides = "".join(f", {t:g} min for {inst}" for inst, t in GAP_THRESHOLD_MINUTES_BY_INSTRUMENT.items())
         fig.text(
             0.01, 1 - 0.38 / height,
-            f"Gaps are stretches longer than {GAP_THRESHOLD_MINUTES:g} min in the raw combined files; grey is a leg window without data",
+            f"Gaps are stretches longer than {GAP_THRESHOLD_MINUTES:g} min{overrides} in the raw combined files; "
+            "grey is a leg window without data",
             ha="left", va="top", fontsize=7.5, color=MUTED,
         )
         handles = [Patch(facecolor=BLUE, label="Data"), Patch(facecolor=TRACK, label="No data / gap")]

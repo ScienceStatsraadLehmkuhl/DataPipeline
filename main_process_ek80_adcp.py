@@ -15,13 +15,13 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 from globals import LEGS
 from input_tools import input_folders_processer
-from input_tools_ek80_adcp import ensure_ek80_adcp_netcdfs
+from input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER, ensure_ek80_adcp_netcdfs
 from main_globals import *
 
 
 EXPERIMENT = "ACOUSTIC"
 INSTRUMENT_RAW = "EK80-RAW"  # the ADCP channels are embedded in the EK80 raw files
-ADCP_OUTPUT_SUBFOLDER = "EK80_CP300-ADCP"
+ADCP_OUTPUT_SUBFOLDER = EK80_ADCP_OUTPUT_SUBFOLDER
 
 
 def run_processing_ek80_adcp(cruise, leg=None, sonar_model="EK80"):

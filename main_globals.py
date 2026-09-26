@@ -23,8 +23,8 @@ Sections:
 CRUISE = "2025_2026_OOE2"
 
 ## Leg(s) to run
-#LEG = "9"          # run only one leg
-#LEG = ["9", "10", "11", "12", "14", "27", "28"]   # run a specific list of legs
+#LEG = "1"          # run only one leg
+#LEG = ["17", "18"]   # run a specific list of legs
 LEG = None          # run all legs
 
 
@@ -33,7 +33,7 @@ LEG = None          # run all legs
 # ============================================================
 
 ## Processing? Plotting? Both?
-MODE = "plot"  # "process", "plot", or "both"
+MODE = "process"  # "process", "plot", or "both"
 
 ## Filters on what gets run (None = no filter, i.e. run everything)
 ONLY_EXPERIMENTS = None   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"]; navigation is always included
@@ -45,7 +45,7 @@ ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
 # Acoustics (its own pipeline, run separately from "process sensors" above see main_processing_acoustics.py)
 # ============================================================
 
-RUN_ACOUSTICS = False       # whether to run the acoustics pipeline at all
+RUN_ACOUSTICS = True       # whether to run the acoustics pipeline at all
 ONLY_ACOUSTICS = None       # e.g. ["EK80_echos_csv"]; None = run every implemented acoustic source
 
 
@@ -81,9 +81,14 @@ PRESSURE_REMOVAL_BUFFER_MINUTES = 15   # minutes of data removed after each pres
 
 ## GPS gap-fill: EK80/Ferrybox fill in for GGA when it has gaps
 GGA_GAP_FILL_THRESHOLD_MINUTES = 0.06   # GGA gaps larger than this trigger EK80/Ferrybox gap-fill #0.06 = 4 sec
+BRIDGE_GAP_FILL_THRESHOLD_MINUTES = 10   # stretches still larger than this after EK80/Ferrybox trigger the Bridge nav log (last resort)
 
 ## Gap analysis (gap_analysis.py)
 GAP_THRESHOLD_MINUTES = 1   # only report gaps larger than this threshold
+# Per-instrument overrides of GAP_THRESHOLD_MINUTES. GPS-MERGED-SOURCES is
+# partly filled from the Bridge nav log (one fix every 6 min), so its 6-min
+# steps would otherwise all count as gaps.
+GAP_THRESHOLD_MINUTES_BY_INSTRUMENT = {"GPS-MERGED-SOURCES": 15}
 
 ## Ferrybox spike removal (hampel_spike_clean in cleaning_Ferrybox.py):
 ## a Hampel filter that blanks single/few-point spikes by comparing each

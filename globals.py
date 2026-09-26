@@ -2,8 +2,14 @@ LEGS = [str(x + 1) for x in range(30)]
 
 EXPERIMENTS = ["NAVIGATION",  "OCEANOGRAPHY", "ACOUSTIC", "METEOROLOGY", "RADIATION"]
 
+# icListen HF hydrophones (serial numbers, as in their LUF/LUW file names).
+# Each is its own instrument so resampled averages never mix hydrophones.
+# 7526 replaced 6955 on 2026_SaS.
+HYDROPHONE_SERIALS = ["6952", "6954", "6955", "7526"]
+HYDROPHONE_INSTRUMENTS = [f"Hydrophone_{sn}" for sn in HYDROPHONE_SERIALS]
+
 INSTRUMENTS = { "NAVIGATION": ["GGA", "HDT", "SXN23", "VTG", "ZDA", "GPS-MERGED-SOURCES"],
-                "ACOUSTIC": ["EK80-RAW", "EK80_echos_csv", "EK80_echos_ncdf", "EK80_CP300-ADCP"],
+                "ACOUSTIC": ["EK80-RAW", "EK80_echos_csv", "EK80_echos_ncdf", "EK80_CP300-ADCP", *HYDROPHONE_INSTRUMENTS],
                 "METEOROLOGY": ["GMX300", "GMX560", 'Lufft_WS100-1', 'Gill_2310037-WC76'],
                 "OCEANOGRAPHY": ["Ferrybox_CTD", "Seabird_CTD"],
                 "RADIATION": ["Apogee_SI431", "Apogee_SQ522"],
@@ -146,7 +152,22 @@ VARIABLES = {
             "env_sound_speed_indicative",
             "source_raw_file",
             "sonar_model",
-        ]
+        ],
+        # Only the summaries are plotted; the spec_{freq}Hz bins are kept in
+        # the files but would be ~512 figures per leg.
+        **{
+            inst: [
+                "temperature",
+                "humidity",
+                "level_broadband",
+                "level_0.5-2kHz",
+                "level_2-10kHz",
+                "level_10-50kHz",
+                "level_50-256kHz",
+                "peak_freq_hz",
+            ]
+            for inst in HYDROPHONE_INSTRUMENTS
+        },
     }
 }
 
@@ -467,6 +488,19 @@ def get_categorical_codes(experiment, instrument):
     return CATEGORICAL_VARIABLES.get(experiment, {}).get(instrument, {})
 
 
+# Sound-level (dB) columns, by name prefix: subsample() averages these
+# energetically, 10*log10(mean(10^(L/10))), instead of arithmetically.
+DB_LEVEL_PREFIXES = {
+    "ACOUSTIC": {inst: ("level_", "spec_") for inst in HYDROPHONE_INSTRUMENTS},
+}
+
+
+def get_db_level_columns(experiment, instrument, columns):
+    """The columns of one instrument that hold dB levels ([] if none)."""
+    prefixes = DB_LEVEL_PREFIXES.get(experiment, {}).get(instrument, ())
+    return [c for c in columns if prefixes and str(c).startswith(prefixes)]
+
+
 PLOT_LABELS = {
     "NAVIGATION": {
         "GGA": {
@@ -586,6 +620,22 @@ PLOT_LABELS = {
             "avg_sound_velocity_m_s": "Average sound velocity, Chen–Millero (m.s⁻¹)",
             "flag": "Data quality flag",
         },
+    },
+
+    # Levels are in the spectrum file's own dB units (not re 1 µPa)
+    "ACOUSTIC": {
+        inst: {
+            "time": "Date and time (UTC)",
+            "temperature": f"Hydrophone {inst.split('_')[1]} temperature (°C)",
+            "humidity": f"Hydrophone {inst.split('_')[1]} internal humidity (%)",
+            "level_broadband": "Broadband level, 0.5–256 kHz (dB, file units)",
+            "level_0.5-2kHz": "Band level, 0.5–2 kHz (dB, file units)",
+            "level_2-10kHz": "Band level, 2–10 kHz (dB, file units)",
+            "level_10-50kHz": "Band level, 10–50 kHz (dB, file units)",
+            "level_50-256kHz": "Band level, 50–256 kHz (dB, file units)",
+            "peak_freq_hz": "Peak frequency (Hz)",
+        }
+        for inst in HYDROPHONE_INSTRUMENTS
     },
 
     "RADIATION": {

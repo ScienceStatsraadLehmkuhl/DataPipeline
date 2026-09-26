@@ -166,7 +166,7 @@ def process_ctd_leg(cruise, leg, gga_df, gps_source_path, leg_start_end_path, so
     ) = input_folders_processer(leg, EXPERIMENT, INSTRUMENT, cruise=cruise)
     combined_path = os.path.join(exp_folder, output_file)
 
-    if not _has_relevant_inputs(input_folder) and not os.path.exists(combined_path):
+    if not _has_relevant_inputs(input_folder) and not os.path.exists(combined_path) and not _has_output_csvs(output_folder):
         print(f"      [SKIP] No Seabird_CTD data for LEG {leg}")
         return None
 

@@ -29,7 +29,13 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from input_tools_ek80_adcp import exclude_ek80_adcp_channels
+from input_tools_ek80_adcp import (
+    EK80ADCPCollector,
+    exclude_ek80_adcp_channels,
+    process_ek80_adcp_raw_file,
+    stale_ek80_adcp_raw_files,
+    write_ek80_adcp_output,
+)
 from preprocessing import add_canonical_time, format_time
 
 
@@ -175,13 +181,31 @@ def _extract_easy_parameters(ed: "ep.echodata.EchoData", raw_filename: str) -> p
     return df
 
 
+def _write_adcp_or_report(write, raw_file_path):
+    """Run an ADCP write; a failure is reported, not raised, so it can't stop the echosounder."""
+    try:
+        write()
+    except Exception as exc:
+        print(f"      [ERROR] ADCP extraction failed for {os.path.basename(raw_file_path)}: {exc}")
+        traceback.print_exc()
+
+
 def process_ek80_echosounder_raw_file(
-    raw_file_path: str, nc_folder_name: str, csv_folder_name: str, sonar_model: str = "EK80"
+    raw_file_path: str,
+    nc_folder_name: str,
+    csv_folder_name: str,
+    sonar_model: str = "EK80",
+    adcp_output_folder_name: str | None = None,
 ) -> str:
     """
     Convert a single EK80 .raw file to netCDF and extract easy parameters
     to a matching CSV, named after the raw file (e.g. D20240101-T120000.nc
     / .csv) -- the netCDF goes to nc_folder_name, the CSV to csv_folder_name.
+
+    If adcp_output_folder_name is given, the file's embedded ADCP channels are
+    also written there (see input_tools_ek80_adcp.write_ek80_adcp_output),
+    captured from the same read of the raw file as the echosounder data. An
+    ADCP failure is reported and doesn't stop the echosounder conversion.
 
     Returns the path to the per-file CSV.
     """
@@ -205,13 +229,31 @@ def process_ek80_echosounder_raw_file(
             print(f"      [WARN] Could not reuse existing netCDF for {raw_filename} ({exc}); reconverting from raw")
             ed = None
 
+    if ed is not None and adcp_output_folder_name:
+        # The echosounder side didn't need the raw file, so the ADCP gets its own read.
+        _write_adcp_or_report(
+            lambda: process_ek80_adcp_raw_file(raw_file_path, adcp_output_folder_name, sonar_model=sonar_model),
+            raw_file_path,
+        )
+
     if ed is None:
         # Some raw files bundle a wideband ADCP (e.g. a CP300) as extra channels
         # that echopype's EK80 parser cannot represent -- ep.open_raw() otherwise
         # raises a KeyError building the Platform group. Those channels are
-        # extracted separately by input_tools_ek80_adcp.py.
-        with exclude_ek80_adcp_channels():
+        # hidden from echopype and, if wanted, collected during the same read
+        # and written by input_tools_ek80_adcp.py.
+        adcp_collector = EK80ADCPCollector() if adcp_output_folder_name else None
+        with exclude_ek80_adcp_channels(adcp_collector):
             ed = ep.open_raw(raw_file_path, sonar_model=sonar_model)
+
+        if adcp_collector is not None:
+            _write_adcp_or_report(
+                lambda: write_ek80_adcp_output(
+                    adcp_collector.result(), raw_file_path, adcp_output_folder_name, sonar_model=sonar_model
+                ),
+                raw_file_path,
+            )
+            del adcp_collector
 
         # echopype writes each internal group (Environment, Platform, Sonar,
         # Beam_group*...) as a separate reopen of the same .nc file. The
@@ -277,10 +319,17 @@ def ensure_ek80_echosounder_combined_csv(
     exp_folder_name: str,
     output_file: str,
     sonar_model: str = "EK80",
+    adcp_output_folder_name: str | None = None,
 ) -> str:
     """
     Ensure the leg-level combined EK80 CSV exists and reflects the latest
     raw inputs.
+
+    If adcp_output_folder_name is given, the embedded ADCP outputs are brought
+    up to date in the same loop, so each raw file is read once for both (see
+    process_ek80_echosounder_raw_file). A file whose echosounder CSV is fresh
+    but whose ADCP output is stale gets an ADCP-only read. ADCP failures are
+    reported per file and don't stop the echosounder.
 
     Staleness is decided per .raw file via _stale_raw_files (does this raw
     file have a matching per-file CSV, and is that CSV at least as new as
@@ -302,20 +351,43 @@ def ensure_ek80_echosounder_combined_csv(
         if input_ok else []
     )
 
-    if os.path.exists(combined_path) and not stale_files:
+    adcp_stale_files = (
+        set(stale_ek80_adcp_raw_files(input_folder_name, adcp_output_folder_name))
+        if adcp_output_folder_name and input_ok else set()
+    )
+
+    if os.path.exists(combined_path) and not stale_files and not adcp_stale_files:
         return combined_path
 
     if not input_ok:
-        raise FileNotFoundError(f"EK80 input folder not found: {input_folder_name}")
+        # Raw data removed: rebuild the combined CSV from the per-file CSVs
+        # already converted, if there are any (checked below).
+        print(f"      [EK80] Input folder not found: {input_folder_name}; combining existing per-file CSVs")
 
-    for filename in stale_files:
+    echosounder_stale_files = set(stale_files)
+    for filename in sorted(echosounder_stale_files | adcp_stale_files):
         raw_path = os.path.join(input_folder_name, filename)
+        if filename not in echosounder_stale_files:
+            _write_adcp_or_report(
+                lambda: process_ek80_adcp_raw_file(raw_path, adcp_output_folder_name, sonar_model=sonar_model),
+                raw_path,
+            )
+            continue
         try:
-            process_ek80_echosounder_raw_file(raw_path, nc_folder_name, csv_folder_name, sonar_model=sonar_model)
+            process_ek80_echosounder_raw_file(
+                raw_path,
+                nc_folder_name,
+                csv_folder_name,
+                sonar_model=sonar_model,
+                adcp_output_folder_name=adcp_output_folder_name if filename in adcp_stale_files else None,
+            )
             print(f"      [OK] Converted {filename}")
         except Exception:
             traceback.print_exc()
             raise
+
+    if os.path.exists(combined_path) and not stale_files:
+        return combined_path  # only ADCP outputs needed updating
 
     csv_files = sorted(Path(csv_folder_name).glob("*.csv"))
     if not csv_files:

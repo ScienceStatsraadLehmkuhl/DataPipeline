@@ -40,6 +40,7 @@ instrument in their own right.
 """
 import os
 import re
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -48,6 +49,7 @@ from DataPipeline.gap_analysis import analyze_gaps_for_file
 from DataPipeline.manual_data_read import load_leg_windows
 from DataPipeline.fromzipxmltojson import convert_zips_to_csvs, read_csv
 from DataPipeline.input_tools import RELEVANT_INPUT_EXTS, give_me_full_folder_name
+from DataPipeline.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
 from DataPipeline.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
 from DataPipeline.preprocessing import ensure_time, to_utc
 
@@ -178,6 +180,13 @@ def _parse_ek80_filename_time(filename: str) -> pd.Timestamp | None:
     return pd.to_datetime(f"{date_str}{time_str}", format="%Y%m%d%H%M%S")
 
 
+def _ek80_stems(folder: str | None, extension: str) -> dict[str, str]:
+    """{stem: filename} of the files in `folder` ending in `extension` (any case)."""
+    if not folder or not os.path.isdir(folder):
+        return {}
+    return {Path(f).stem: f for f in os.listdir(folder) if f.lower().endswith(extension)}
+
+
 def select_ek80_raw_files_for_gaps(
     input_folder_name: str | None,
     gap_windows: list[tuple],
@@ -185,18 +194,24 @@ def select_ek80_raw_files_for_gaps(
     """
     .raw filenames overlapping any gap window, picked from filename
     timestamps alone (no file needs to be opened to decide this).
+    """
+    raw = _ek80_stems(input_folder_name, ".raw")
+    return [raw[stem] for stem in select_ek80_stems_for_gaps(raw, gap_windows)]
+
+
+def select_ek80_stems_for_gaps(stems, gap_windows: list[tuple]) -> list[str]:
+    """
+    EK80 file stems ("...-D<date>-T<time>") overlapping any gap window.
 
     A file's filename only gives its start time, not its duration, so for
     each gap we include the last file starting at/before the gap (it may
     run into the gap) plus every file starting inside the gap window.
     """
-    if not gap_windows or not input_folder_name or not os.path.isdir(input_folder_name):
+    if not gap_windows:
         return []
 
     files_with_time = []
-    for fname in os.listdir(input_folder_name):
-        if not fname.lower().endswith(".raw"):
-            continue
+    for fname in stems:
         ts = _parse_ek80_filename_time(fname)
         if ts is not None:
             files_with_time.append((ts, fname))
@@ -243,34 +258,55 @@ def extract_ek80_gap_positions(
     cruise's EK80/GPS setup, see module docstring), for .raw files
     overlapping the given gap windows only. Converts just those files --
     see module docstring for why the rest of the leg is left untouched here.
+
+    Files are picked from the raw .raw files and the per-file CSVs already
+    converted into csv_folder_name together, so a .raw file removed from
+    the raw share (or the whole raw folder gone) still contributes through
+    its earlier conversion.
     """
     empty = pd.DataFrame(columns=POSITION_COLUMNS)
 
     if not gap_windows:
         return empty
-    if not input_folder_name or not os.path.isdir(input_folder_name):
-        print(f"      [GAP-FILL] EK80 input folder not found or missing: {input_folder_name!r}")
-        return empty
 
-    raw_filenames = select_ek80_raw_files_for_gaps(input_folder_name, gap_windows)
-    if not raw_filenames:
+    raw_stems = _ek80_stems(input_folder_name, ".raw")
+    csv_stems = _ek80_stems(csv_folder_name, ".csv")
+    if not raw_stems:
         print(
-            f"      [GAP-FILL] No .raw files in {input_folder_name} overlap gap window(s) {gap_windows} ")
+            f"      [GAP-FILL] EK80 input folder missing or has no .raw files: {input_folder_name!r}; "
+            f"using the {len(csv_stems)} already-converted per-file CSV(s) in {csv_folder_name}"
+        )
+
+    stems = select_ek80_stems_for_gaps(set(raw_stems) | set(csv_stems), gap_windows)
+    if not stems:
+        print(f"      [GAP-FILL] No EK80 files overlap gap window(s) {gap_windows} ")
         return empty
-    print(f"      [GAP-FILL] {len(raw_filenames)} EK80 file(s) selected for gap-fill")
+    print(f"      [GAP-FILL] {len(stems)} EK80 file(s) selected for gap-fill")
 
     os.makedirs(nc_folder_name, exist_ok=True)
     os.makedirs(csv_folder_name, exist_ok=True)
+    # The embedded ADCP is written from the same read of each raw file, into
+    # the folder the acoustics run uses, so that run doesn't read it again.
+    adcp_folder_name = os.path.join(os.path.dirname(nc_folder_name), EK80_ADCP_OUTPUT_SUBFOLDER)
 
     per_file_csvs = []
-    for fname in raw_filenames:
+    for stem in stems:
+        csv_path = os.path.join(csv_folder_name, f"{stem}.csv")
+        per_file_csvs.append(csv_path)
+        if stem not in raw_stems:
+            continue  # raw file gone; its earlier conversion is all there is
+        fname = raw_stems[stem]
         raw_path = os.path.join(input_folder_name, fname)
-        csv_path = os.path.join(csv_folder_name, f"{Path(fname).stem}.csv")
 
         if not os.path.exists(csv_path) or os.path.getmtime(raw_path) > os.path.getmtime(csv_path):
             print(f"      [GAP-FILL] Converting {fname} for GPS gap-fill")
-            process_ek80_echosounder_raw_file(raw_path, nc_folder_name, csv_folder_name, sonar_model=sonar_model)
-        per_file_csvs.append(csv_path)
+            process_ek80_echosounder_raw_file(
+                raw_path,
+                nc_folder_name,
+                csv_folder_name,
+                sonar_model=sonar_model,
+                adcp_output_folder_name=adcp_folder_name,
+            )
 
     frames = [pd.read_csv(p) for p in per_file_csvs if os.path.exists(p)]
     if not frames:
@@ -534,6 +570,28 @@ def find_bridge_input_folder(cruise: str, leg) -> str | None:
     return f"{leg_root}/NAVIGATION/Bridge"
 
 
+def cache_bridge_files(raw_bridge_folder: str | None, cache_folder: str) -> str:
+    """
+    Copy the Bridge xlsx files that are new or changed on the raw share into
+    `cache_folder` (processed_data/.../NAVIGATION/Bridge), and return
+    `cache_folder` as the folder to read Bridge positions from.
+
+    Bridge files are read directly rather than converted to per-file CSVs
+    like every other source, so without this copy nothing of them would
+    survive the raw data being removed from the geomatics share. The raw
+    share is only read from, never written to.
+    """
+    if not raw_bridge_folder or not os.path.isdir(raw_bridge_folder):
+        return cache_folder
+    for src in Path(raw_bridge_folder).glob("*.xlsx"):
+        dst = Path(cache_folder) / src.name
+        if not dst.exists() or src.stat().st_mtime > dst.stat().st_mtime:
+            os.makedirs(cache_folder, exist_ok=True)
+            shutil.copyfile(src, dst)
+            print(f"      [GAP-FILL] Cached Bridge file {src.name} in {cache_folder}")
+    return cache_folder
+
+
 BRIDGE_HEADER_SKIPROWS = 8
 _DMS_RE = re.compile(r"^\s*(\d+)\s*\xb0\s*(\d+(?:\.\d+)?)\s*'\s*([NSEW])\s*$")
 
@@ -633,6 +691,47 @@ def extract_bridge_gap_positions(
             f"inside the gap window(s) {gap_windows} -- check Bridge file timestamps vs. gap times"
         )
     return positions.sort_values("time").reset_index(drop=True)
+
+
+def keep_previous_fill_fixes(merged: pd.DataFrame, merged_path: str, gap_windows: list[tuple]) -> pd.DataFrame:
+    """
+    Guard against a rebuild of GPS-MERGED-SOURCES losing fill fixes it had
+    before, e.g. because EK80/Bridge raw files were removed from the raw
+    share since the last build.
+
+    For each fill source (anything but GGA), if the existing file at
+    `merged_path` has more fixes of that source inside the current gap
+    windows than the new `merged` does, that source's old in-gap fixes are
+    carried over. Only fixes inside gaps GGA still has are compared, so
+    fixes that legitimately drop out (GGA itself now covering the time, or a
+    raised gap threshold) are not kept.
+    """
+    if not gap_windows or not os.path.exists(merged_path):
+        return merged
+
+    old = pd.read_csv(merged_path, usecols=lambda c: c in POSITION_COLUMNS)
+    if "source" not in old.columns:
+        return merged
+    old["time"] = to_utc(old["time"])
+    old = old.loc[(old["source"] != "GGA") & _in_any_window(old["time"], gap_windows)]
+    new_in_gaps = merged.loc[_in_any_window(merged["time"], gap_windows), "source"]
+
+    kept = []
+    for source, old_rows in old.groupby("source"):
+        n_new = int((new_in_gaps == source).sum())
+        if n_new < len(old_rows):
+            print(
+                f"      [WARN] [GAP-FILL] Rebuild found {n_new} {source} fix(es) inside the gaps, "
+                f"the existing {os.path.basename(merged_path)} has {len(old_rows)} "
+                f"(source files removed?); keeping the existing ones"
+            )
+            kept.append(old_rows)
+    if not kept:
+        return merged
+
+    merged = pd.concat([merged, *kept], ignore_index=True)
+    merged = merged.drop_duplicates(subset=["time", "source"])
+    return merged.sort_values("time").reset_index(drop=True)
 
 
 def merge_gga_with_gap_fill(

@@ -15,6 +15,7 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 from globals import LEGS
 from input_tools import input_folders_processer
+from input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
 from input_tools_ek80_echosounder import ensure_ek80_echosounder_combined_csv
 from main_globals import *
 
@@ -27,8 +28,12 @@ ECHOSOUNDER_CSV_SUBFOLDER = "EK80_echos_csv"
 
 
 
-def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
+def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80", include_adcp=False):
     """Convert raw EK80 echosounder files to a combined per-leg CSV.
+
+    With include_adcp, the embedded ADCP netCDFs are written in the same pass,
+    so each raw file is read once for both (see main_process_ek80_adcp.py for
+    the ADCP-only run).
 
     Returns {leg: combined_csv_path} for legs that succeeded (failed legs are
     omitted, matching the [ERROR]-and-continue behavior below).
@@ -38,10 +43,11 @@ def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
 
     legs = LEGS if leg is None else (leg if isinstance(leg, (list, tuple)) else [leg])
     combined_paths = {}
+    label = "ECHOSOUNDER + ADCP" if include_adcp else "ECHOSOUNDER"
 
     for current_leg in legs:
         print(f"\n{'=' * 80}")
-        print(f"                 PROCESSING EK80 ECHOSOUNDER: {cruise} - LEG {current_leg}")
+        print(f"                 PROCESSING EK80 {label}: {cruise} - LEG {current_leg}")
         print(f"{'=' * 80}")
 
         (
@@ -74,16 +80,19 @@ def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80"):
                 exp_folder_name=exp_folder_name,
                 output_file=output_file,
                 sonar_model=sonar_model,
+                adcp_output_folder_name=(
+                    os.path.join(exp_folder_name, EK80_ADCP_OUTPUT_SUBFOLDER) if include_adcp else None
+                ),
             )
             print(f"      [OK] LEG {current_leg} EK80 combined CSV -> {combined_path}")
             combined_paths[current_leg] = combined_path
         except Exception as exc:
-            print(f"      [ERROR] Failed processing LEG {current_leg} EK80 echosounder:\n{exc}")
+            print(f"      [ERROR] Failed processing LEG {current_leg} EK80 {label.lower()}:\n{exc}")
             traceback.print_exc()
             continue
 
         print(f"\n{'-' * 33}")
-        print(f"    FINISHED PROCESSING LEG {current_leg} EK80 ECHOSOUNDER")
+        print(f"    FINISHED PROCESSING LEG {current_leg} EK80 {label}")
         print(f"{'-' * 33}")
 
     return combined_paths

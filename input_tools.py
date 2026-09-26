@@ -50,10 +50,15 @@ def give_me_full_folder_name(parent_path, leg):
 
     return
     ------
-    full_path: str
-        The complete name of the folder 
+    full_path: str | None
+        The complete name of the folder, or None if it can't be found --
+        including when the cruise folder itself is missing (raw data removed
+        or the geomatics share not mounted), so callers fall back to what's
+        already in processed_data instead of crashing.
     """
     parent = Path(parent_path).parent
+    if not parent.is_dir():
+        return None
 
     for fname in os.listdir(parent):
         if "LEG" + leg + "_" in fname:

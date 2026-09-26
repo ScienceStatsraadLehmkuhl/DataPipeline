@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from DataPipeline.main_globals import CRUISE, GAP_THRESHOLD_MINUTES, LEG
+from DataPipeline.main_globals import CRUISE, GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT, LEG
 from DataPipeline.manual_data_read import get_logsheet_paths, load_leg_windows
 from DataPipeline.preprocessing import to_utc
 
@@ -538,7 +538,8 @@ def run_gap_analysis(
     found_gap_files = 0
     missing_files = 0
 
-    print(f"Gap analysis for '{cruise}': Threshold {threshold_minutes} minute(s)")
+    print(f"Gap analysis for '{cruise}': Threshold {threshold_minutes} minute(s)"
+          + "".join(f", {inst}: {t} minute(s)" for inst, t in GAP_THRESHOLD_MINUTES_BY_INSTRUMENT.items()))
 
 
     # iter_target_files iterates legs as the outer loop, so entries for the
@@ -575,7 +576,7 @@ def run_gap_analysis(
                 leg=entry["leg"],
                 experiment=entry["experiment"],
                 instrument=entry["instrument"],
-                threshold_minutes=threshold_minutes,
+                threshold_minutes=GAP_THRESHOLD_MINUTES_BY_INSTRUMENT.get(entry["instrument"], threshold_minutes),
                 leg_window=leg_window,
                 time_format=time_format,
                 cache_dir=cache_dir,

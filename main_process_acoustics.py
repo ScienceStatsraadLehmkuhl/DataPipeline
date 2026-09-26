@@ -4,9 +4,10 @@ Acoustics processing pipeline, run independently of "process sensors"
 raw acoustic acquisition doesn't fit its generic zip/json/csv/cnv import).
 
 Each acoustic source owns its own raw-conversion module. Only EK80's
-echosounder and ADCP channels are implemented so far; Teledyne ADCP and the
-three hydrophones (wav + txt) are not yet -- add their conversion modules and
-list them in ACOUSTIC_SOURCES as they land.
+echosounder and ADCP channels and the hydrophones' spectrum txt logs
+(main_process_hydrophones.py, one source per serial) are implemented so far;
+Teledyne ADCP and the hydrophone wav recordings are not yet -- add their
+conversion modules and list them in ACOUSTIC_SOURCES as they land.
 
 Sources that produce a combined CSV with a time column (currently only
 EK80_echos_csv) are run through the same data_process() cleaning +
@@ -15,7 +16,7 @@ instrument, so they still flow into combine_dataset_new.py / gap_analysis.py
 automatically -- both of those already discover files by name via
 DataPipeline.globals.INSTRUMENTS/EXPERIMENTS, they don't care which pipeline
 produced them. Sources without a flat time series (EK80_CP300-ADCP -> one
-netCDF per raw file) are just converted and left as-is; there is nothing to
+netCDF per raw file in EK80_adcp_ncdf/) are just converted and left as-is; there is nothing to
 clean/interval-resample/gap-check about a velocity-profile netCDF the way
 there is about a plain time series CSV.
 """
@@ -24,11 +25,12 @@ import traceback
 import pandas as pd
 
 from DataPipeline.data_processing_sensors import data_process
-from DataPipeline.globals import RENAME_COLUMNS
+from DataPipeline.globals import HYDROPHONE_INSTRUMENTS, RENAME_COLUMNS
 from DataPipeline.input_tools import input_folders_processer
 from DataPipeline.main_globals import CRUISE, LEG, ONLY_ACOUSTICS
 from DataPipeline.main_process_ek80_adcp import run_processing_ek80_adcp
 from DataPipeline.main_process_ek80_echosounder import run_processing_ek80_echosounder
+from DataPipeline.main_process_hydrophones import run_processing_hydrophones
 from DataPipeline.manual_data_read import get_logsheet_paths
 
 EXPERIMENT = "ACOUSTIC"
@@ -36,8 +38,8 @@ EXPERIMENT = "ACOUSTIC"
 # Acoustic sources implemented so far, named after their DataPipeline.globals
 # INSTRUMENTS["ACOUSTIC"] slot so ONLY_ACOUSTICS filtering matches the same
 # vocabulary as ONLY_INSTRUMENTS elsewhere. Extend as Teledyne ADCP / the
-# three hydrophones get their own conversion modules.
-ACOUSTIC_SOURCES = ["EK80_echos_csv", "EK80_CP300-ADCP"]
+# hydrophone wav recordings get their own conversion modules.
+ACOUSTIC_SOURCES = ["EK80_echos_csv", "EK80_CP300-ADCP", *HYDROPHONE_INSTRUMENTS]
 
 
 def _clean_and_interval_resample_echosounder(cruise, leg, combined_path, leg_start_end_path, sooguard_log_path):
@@ -90,8 +92,15 @@ def run_processing_acoustics(cruise, leg=None, only_acoustics=None, sonar_model=
 
     leg_start_end_path, sooguard_log_path = get_logsheet_paths(cruise)
 
-    if "EK80_echos_csv" in sources:
-        combined_paths = run_processing_ek80_echosounder(cruise, leg=leg, sonar_model=sonar_model)
+    run_echosounder = "EK80_echos_csv" in sources
+    run_adcp = "EK80_CP300-ADCP" in sources
+
+    if run_echosounder:
+        # With both selected, one pass per raw file writes the echosounder and
+        # ADCP outputs together, so each raw file is read once, not twice.
+        combined_paths = run_processing_ek80_echosounder(
+            cruise, leg=leg, sonar_model=sonar_model, include_adcp=run_adcp
+        )
         for current_leg, combined_path in (combined_paths or {}).items():
             try:
                 _clean_and_interval_resample_echosounder(
@@ -102,8 +111,14 @@ def run_processing_acoustics(cruise, leg=None, only_acoustics=None, sonar_model=
                 print(f"      [ERROR] Failed cleaning LEG {current_leg} EK80 echosounder:\n{exc}")
                 traceback.print_exc()
 
-    if "EK80_CP300-ADCP" in sources:
+    if run_adcp:
+        # ADCP-only run; after the combined pass above it only picks up files
+        # that pass didn't reach (e.g. a leg stopped by an echosounder error).
         run_processing_ek80_adcp(cruise, leg=leg, sonar_model=sonar_model)
+
+    hydrophone_serials = [s.split("_", 1)[1] for s in sources if s in HYDROPHONE_INSTRUMENTS]
+    if hydrophone_serials:
+        run_processing_hydrophones(cruise, leg=leg, serials=hydrophone_serials)
 
 
 if __name__ == "__main__":

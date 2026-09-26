@@ -7,7 +7,7 @@ import numpy as np
 from DataPipeline.input_tools import *
 from DataPipeline.cleaning_Ferrybox import cleaning
 
-from DataPipeline.globals import RENAME_COLUMNS, get_categorical_codes
+from DataPipeline.globals import RENAME_COLUMNS, get_categorical_codes, get_db_level_columns
 from DataPipeline.preprocessing import TIME_ALIAS, to_utc
 import numpy as np
 import pandas as pd
@@ -80,6 +80,13 @@ def add_gps_coordinates_from_df(df, gga_df, time_col="time",
     df[time_col] = to_utc(df[time_col])
     gps[gps_time_col] = to_utc(gps[gps_time_col])
 
+    # gga_df may come straight from a CSV read (e.g. GPS-MERGED-SOURCES) whose
+    # lat/lon columns weren't necessarily coerced to numeric beforehand; an
+    # object-dtype column here would make merge_asof's output object-dtype
+    # too, which then can't be written into df's float64 lat/lon columns.
+    gps[lat_col] = pd.to_numeric(gps[lat_col], errors="coerce")
+    gps[lon_col] = pd.to_numeric(gps[lon_col], errors="coerce")
+
     # prep gps -- rows without a usable position must not take part in the
     # "nearest" match, or they would shadow a valid neighbouring fix
     gps = gps.dropna(subset=[gps_time_col, lat_col, lon_col]).sort_values(gps_time_col)
@@ -113,10 +120,14 @@ def add_gps_coordinates_from_df(df, gga_df, time_col="time",
 
 
 
-def subsample(df: pd.DataFrame, freq: str, time_col: str = "time", categorical_col: str | None = None) -> pd.DataFrame:
+def subsample(df: pd.DataFrame, freq: str, time_col: str = "time", categorical_col: str | None = None,
+              db_cols=()) -> pd.DataFrame:
     """
     Resample to `freq` (e.g., '1min', '3min') averaging numeric columns.
     Non-numeric columns are dropped by default (since "averaging all other values").
+
+    `db_cols` names sound-level columns in dB: those are averaged
+    energetically, 10*log10(mean(10^(L/10))), not arithmetically.
 
     `categorical_col` names a code-valued column (e.g. Lufft precipitation type)
     that can't be averaged. Per bin it takes the dominant (most frequent) code
@@ -156,7 +167,14 @@ def subsample(df: pd.DataFrame, freq: str, time_col: str = "time", categorical_c
         keep = (codes == bin_code) | pd.isna(bin_code)
         data = data[keep]
 
-    return data.resample(freq).mean().reset_index()
+    db_cols = [c for c in db_cols if c in data.columns]
+    if db_cols:
+        data = data.copy()
+        data[db_cols] = np.power(10.0, data[db_cols] / 10.0)
+    out = data.resample(freq).mean()
+    if db_cols:
+        out[db_cols] = 10.0 * np.log10(out[db_cols])
+    return out.reset_index()
 
 def coerce_numeric_columns(df, time_col="time", exclude=None):
     """Force likely-numeric columns to numeric, coercing bad values to NaN.
@@ -227,6 +245,8 @@ def data_process(
 
     # Code-valued column (if any) that subsample() must take the dominant value of, not the mean
     categorical_col = next(iter(get_categorical_codes(experiment, instrument)), None)
+    # Sound-level columns that subsample() must average energetically
+    db_cols = get_db_level_columns(experiment, instrument, df.columns)
 
     # --- Step 1: Auto-load a companion GGA (GPS) file if not provided ---
     if gga_df is None and autoload_gga_csv and cleaned_csv is not None:
@@ -291,7 +311,7 @@ def data_process(
             update_csv(df_clean, geotag_cleaned_csv)
             out_p = Path(geotag_cleaned_csv)
             for freq in ("1min", "3min", "5min", "1h", "1D"):
-                df_sub = subsample(df_clean, freq=freq, time_col=time_col, categorical_col=categorical_col)
+                df_sub = subsample(df_clean, freq=freq, time_col=time_col, categorical_col=categorical_col, db_cols=db_cols)
                 out_csv = str(out_p.with_name(out_p.stem + f"_{freq}" + out_p.suffix))
                 update_csv(df_sub, out_csv)
 
@@ -319,7 +339,7 @@ def data_process(
 
         out_p = Path(cleaned_csv)
         for freq in ("1min", "3min", "5min"):
-            df_sub = subsample(df_clean, freq=freq, time_col=time_col, categorical_col=categorical_col)
+            df_sub = subsample(df_clean, freq=freq, time_col=time_col, categorical_col=categorical_col, db_cols=db_cols)
             out_csv = str(out_p.with_name(out_p.stem + f"_{freq}" + out_p.suffix))
             update_csv(df_sub, out_csv)
 

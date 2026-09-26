@@ -95,9 +95,15 @@ def run_plotting(
                 if only_variables is not None:
                     variables = [v for v in variables if v in only_variables]
 
-                if not variables:
+                # ferrybox_colour_pannel/DIAGNOSTIC_PLOTS use the whole frame, not
+                # `variables` -- an --only-variables filter that excludes every one
+                # of this instrument's variables must not also suppress those.
+                has_instrument_level_work = run_ferrybox_panel or diagnostic_plot_types
+                if not variables and not has_instrument_level_work:
                     print(f"      [SKIP] No variables configured for {experiment}/{instrument}")
                     continue
+                if not variables and per_variable_plot_types:
+                    print(f"      [INFO] No variables configured for {experiment}/{instrument}; only running instrument-level plot type(s)")
 
                 try:
                     paths = load_processed_frame(current_leg, experiment, instrument, cruise=cruise)

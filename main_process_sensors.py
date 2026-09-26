@@ -8,7 +8,7 @@ from DataPipeline.manual_data_read import get_logsheet_paths
 from DataPipeline.preprocessing import to_utc
 from DataPipeline.main_globals import (
     CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES,
-    GGA_GAP_FILL_THRESHOLD_MINUTES,
+    GGA_GAP_FILL_THRESHOLD_MINUTES, BRIDGE_GAP_FILL_THRESHOLD_MINUTES,
 )
 from DataPipeline.gps_gap_fill import (
     find_gga_gaps,
@@ -17,8 +17,10 @@ from DataPipeline.gps_gap_fill import (
     load_ferrybox_gap_df,
     extract_bridge_gap_positions,
     find_bridge_input_folder,
+    cache_bridge_files,
     remaining_gap_windows,
     merge_gga_with_gap_fill,
+    keep_previous_fill_fixes,
     load_cached_merged_positions,
     gps_merged_sources_path,
     ECHOSOUNDER_NC_SUBFOLDER,
@@ -76,6 +78,16 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
     reuse against.
     """
     merged_path = gps_merged_sources_path(cruise, current_leg, exp_folder_name)
+
+    # Every run, not only when Bridge is actually needed, so the copy exists
+    # before the raw share's Bridge files can be removed.
+    try:
+        bridge_folder = cache_bridge_files(
+            find_bridge_input_folder(cruise, current_leg), os.path.join(exp_folder_name, "Bridge"),
+        )
+    except Exception as exc:
+        print(f"      [WARN] Could not cache Bridge files: {exc}")
+        bridge_folder = os.path.join(exp_folder_name, "Bridge")
 
     cached = load_cached_merged_positions(merged_path, gga_combined_csv)
     if cached is not None:
@@ -175,18 +187,17 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
     # i.e. the leftover stretches, not just gaps they didn't touch at all.
     # See gps_gap_fill module docstring.
     bridge_gap_windows = remaining_gap_windows(
-        gap_windows, GGA_GAP_FILL_THRESHOLD_MINUTES, ek80_positions, ferrybox_positions,
+        gap_windows, BRIDGE_GAP_FILL_THRESHOLD_MINUTES, ek80_positions, ferrybox_positions,
     )
     bridge_positions = None
     if bridge_gap_windows:
         print(
-            f"      [GAP-FILL] {len(bridge_gap_windows)} stretch(es) still > {GGA_GAP_FILL_THRESHOLD_MINUTES} min "
+            f"      [GAP-FILL] {len(bridge_gap_windows)} stretch(es) still > {BRIDGE_GAP_FILL_THRESHOLD_MINUTES} min "
             f"after EK80/Ferrybox; trying Bridge nav log (last resort)"
         )
         for start, end in bridge_gap_windows:
             print(f"      [GAP-FILL]   remaining: {start} -> {end}")
         try:
-            bridge_folder = find_bridge_input_folder(cruise, current_leg)
             bridge_positions = extract_bridge_gap_positions(bridge_folder, bridge_gap_windows)
         except Exception as exc:
             print(f"      [WARN] Could not load Bridge positions for gap-fill: {exc}")
@@ -195,6 +206,7 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
 
     print(f"      [GAP-FILL] gga_df: {len(gga_df)} row(s)")
     merged = merge_gga_with_gap_fill(gga_df, ek80_positions, ferrybox_positions, bridge_positions)
+    merged = keep_previous_fill_fixes(merged, merged_path, gap_windows)
     print(f"      [GAP-FILL] merged source counts: {merged['source'].value_counts().to_dict()}")
 
     n_ek80 = (merged["source"] == "EK80_gps").sum()
