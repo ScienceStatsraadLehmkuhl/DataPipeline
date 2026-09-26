@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from DataPipeline.globals import RENAME_COLUMNS, PREFERRED_TIME_COLUMN
+from DataPipeline.vocabulary import RENAME_COLUMNS, PREFERRED_TIME_COLUMN
 from DataPipeline.ingest.input_tools import (
     input_folders_processer,
     ensure_combined_csv,
@@ -48,9 +48,9 @@ from DataPipeline.sensors.data_processing_sensors import (
 )
 from DataPipeline.sensors.cleaning_Ferrybox import cleaning
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths
-from DataPipeline.sensors.main_process_sensors import _load_existing_gps
-from DataPipeline.main_globals import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
-from DataPipeline.globals import LEGS
+from DataPipeline.sensors.gps_gap_fill import load_existing_gps
+from DataPipeline.settings import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
+from DataPipeline.vocabulary import LEGS
 
 EXPERIMENT = "OCEANOGRAPHY"
 INSTRUMENT = "Seabird_CTD"
@@ -227,7 +227,7 @@ def run_processing_ctd(
     leg_start_end_path, sooguard_log_path = get_logsheet_paths(cruise)
 
     print(f"\nPROCESSING LEG {leg}: {EXPERIMENT}/{INSTRUMENT} (profiles)")
-    gga_df, gps_source_path = _load_existing_gps(cruise, leg)
+    gga_df, gps_source_path = load_existing_gps(cruise, leg)
     try:
         process_ctd_leg(cruise, leg, gga_df, gps_source_path, leg_start_end_path, sooguard_log_path, update_flag)
         print(f"      [OK] Processed LEG {leg}: {INSTRUMENT}")

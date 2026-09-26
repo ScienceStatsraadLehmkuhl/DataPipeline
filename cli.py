@@ -1,5 +1,5 @@
 import argparse
-from DataPipeline.main_globals import (
+from DataPipeline.settings import (
     CRUISE,
     DEFAULT_PLOT_TYPES,
     LEG,

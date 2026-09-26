@@ -8,7 +8,7 @@ Sections:
     - Cruise/leg selection      -- which cruise and leg(s) to process
     - Run mode                  -- process vs. plot, and what to include
     - Acoustics                 -- the separate acoustics pipeline
-    - Combined dataset          -- resampling intervals for combine_dataset_new.py
+    - Combined dataset          -- resampling intervals for combine.py
     - Plotting                  -- default plot types
     - Cleaning / gap-filling    -- thresholds used by cleaning and gap-fill steps
 """
@@ -42,7 +42,7 @@ ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
 
 
 # ============================================================
-# Acoustics (its own pipeline, run separately from "process sensors" above see main_processing_acoustics.py)
+# Acoustics (its own pipeline, run separately from "process sensors" above, see acoustics/main_process_acoustics.py)
 # ============================================================
 
 RUN_ACOUSTICS = True       # whether to run the acoustics pipeline at all
@@ -50,7 +50,7 @@ ONLY_ACOUSTICS = None       # e.g. ["EK80_echos_csv"]; None = run every implemen
 
 
 # ============================================================
-# Combined dataset (used by combine_dataset_new.py)
+# Combined dataset (used by combine.py)
 # ============================================================
 
 ## Resampling intervals to generate for the combined dataset

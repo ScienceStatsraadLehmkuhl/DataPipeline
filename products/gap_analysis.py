@@ -9,8 +9,8 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from DataPipeline.main_globals import CRUISE, GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT, LEG
+from DataPipeline.vocabulary import EXPERIMENTS, INSTRUMENTS, LEGS
+from DataPipeline.settings import CRUISE, GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT, LEG
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths, load_leg_windows
 from DataPipeline.ingest.preprocessing import to_utc
 

@@ -32,10 +32,10 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from DataPipeline.products.combine_dataset_new import combined_output_root, resolve_cruise
-from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, VARIABLES, PLOT_LABELS
+from DataPipeline.products.combine import combined_output_root, resolve_cruise
+from DataPipeline.vocabulary import EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, VARIABLES, PLOT_LABELS
 from DataPipeline.ingest.input_tools import input_folders_processer
-from DataPipeline.main_globals import GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT
+from DataPipeline.settings import GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT
 from DataPipeline.plotting.plotters_all_legs import (
     add_leg_markers, add_month_year_axis, expedition_figures_root, load_leg_bounds,
 )

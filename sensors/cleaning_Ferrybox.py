@@ -20,7 +20,7 @@ import pandas as pd
 import numpy as np
 from DataPipeline.ingest.manual_data_read import load_leg_windows, load_pressure_removal_rules
 from DataPipeline.ingest.preprocessing import to_utc
-from DataPipeline.main_globals import (
+from DataPipeline.settings import (
     PRESSURE_REMOVAL_BUFFER_MINUTES,
     HAMPEL_WINDOW_MINUTES,
     HAMPEL_N_SIGMAS,

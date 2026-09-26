@@ -160,7 +160,7 @@ def add_canonical_time(df, *, utc=True, dayfirst=True, preferred_time_col=None):
     `preferred_time_col`, when given and present in df.columns, is used
     as-is instead of searching TIME_ALIAS -- for sources with more than one
     candidate timestamp column (e.g. Ferrybox, see
-    globals.PREFERRED_TIME_COLUMN), TIME_ALIAS's generic priority order
+    vocabulary.PREFERRED_TIME_COLUMN), TIME_ALIAS's generic priority order
     can't be trusted to pick the one that's actually authoritative for that
     source.
     """

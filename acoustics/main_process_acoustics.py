@@ -12,9 +12,9 @@ conversion modules and list them in ACOUSTIC_SOURCES as they land.
 Sources that produce a combined CSV with a time column (currently only
 EK80_echos_csv) are run through the same data_process() cleaning +
 interval-resampling step main_process_sensors.py uses for every other
-instrument, so they still flow into combine_dataset_new.py / gap_analysis.py
+instrument, so they still flow into combine.py / gap_analysis.py
 automatically -- both of those already discover files by name via
-DataPipeline.globals.INSTRUMENTS/EXPERIMENTS, they don't care which pipeline
+DataPipeline.vocabulary.INSTRUMENTS/EXPERIMENTS, they don't care which pipeline
 produced them. Sources without a flat time series (EK80_CP300-ADCP -> one
 netCDF per raw file in EK80_adcp_ncdf/) are just converted and left as-is; there is nothing to
 clean/interval-resample/gap-check about a velocity-profile netCDF the way
@@ -25,9 +25,9 @@ import traceback
 import pandas as pd
 
 from DataPipeline.sensors.data_processing_sensors import data_process
-from DataPipeline.globals import HYDROPHONE_INSTRUMENTS, RENAME_COLUMNS
+from DataPipeline.vocabulary import HYDROPHONE_INSTRUMENTS, RENAME_COLUMNS
 from DataPipeline.ingest.input_tools import input_folders_processer
-from DataPipeline.main_globals import CRUISE, LEG, ONLY_ACOUSTICS
+from DataPipeline.settings import CRUISE, LEG, ONLY_ACOUSTICS
 from DataPipeline.acoustics.main_process_ek80_adcp import run_processing_ek80_adcp
 from DataPipeline.acoustics.main_process_ek80_echosounder import run_processing_ek80_echosounder
 from DataPipeline.acoustics.main_process_hydrophones import run_processing_hydrophones
@@ -35,7 +35,7 @@ from DataPipeline.ingest.manual_data_read import get_logsheet_paths
 
 EXPERIMENT = "ACOUSTIC"
 
-# Acoustic sources implemented so far, named after their DataPipeline.globals
+# Acoustic sources implemented so far, named after their DataPipeline.vocabulary
 # INSTRUMENTS["ACOUSTIC"] slot so ONLY_ACOUSTICS filtering matches the same
 # vocabulary as ONLY_INSTRUMENTS elsewhere. Extend as Teledyne ADCP / the
 # hydrophone wav recordings get their own conversion modules.

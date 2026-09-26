@@ -2,11 +2,11 @@ import os
 import traceback
 from pathlib import Path
 
-from DataPipeline.globals import LEGS
+from DataPipeline.vocabulary import LEGS
 from DataPipeline.ingest.input_tools import input_folders_processer
 from DataPipeline.acoustics.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
 from DataPipeline.acoustics.input_tools_ek80_echosounder import ensure_ek80_echosounder_combined_csv
-from DataPipeline.main_globals import CRUISE, LEG
+from DataPipeline.settings import CRUISE, LEG
 
 
 EXPERIMENT = "ACOUSTIC"
@@ -51,9 +51,9 @@ def run_processing_ek80_echosounder(cruise, leg=None, sonar_model="EK80", includ
         ) = input_folders_processer(current_leg, EXPERIMENT, INSTRUMENT_RAW, cruise=cruise)
 
         # The combined CSV must be named after the "EK80_echos_csv" instrument slot
-        # (see DataPipeline.globals.INSTRUMENTS), not INSTRUMENT_RAW above -- that's
+        # (see DataPipeline.vocabulary.INSTRUMENTS), not INSTRUMENT_RAW above -- that's
         # only the raw-file instrument used to locate the .raw input files. Naming it
-        # after EK80_echos_csv is what lets gap_analysis.py and combine_dataset_new.py
+        # after EK80_echos_csv is what lets gap_analysis.py and combine.py
         # find it.
         base_name = f"{cruise}_LEG{current_leg}_{EXPERIMENT}_{ECHOSOUNDER_CSV_SUBFOLDER}"
         output_file = str(Path(exp_folder_name) / f"{base_name}.csv")

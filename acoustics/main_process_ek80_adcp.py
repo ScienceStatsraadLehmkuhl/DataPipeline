@@ -1,10 +1,10 @@
 import os
 import traceback
 
-from DataPipeline.globals import LEGS
+from DataPipeline.vocabulary import LEGS
 from DataPipeline.ingest.input_tools import input_folders_processer
 from DataPipeline.acoustics.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER, ensure_ek80_adcp_netcdfs
-from DataPipeline.main_globals import CRUISE, LEG
+from DataPipeline.settings import CRUISE, LEG
 
 
 EXPERIMENT = "ACOUSTIC"

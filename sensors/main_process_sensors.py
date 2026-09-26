@@ -1,12 +1,10 @@
 import os
 from pathlib import Path
-import pandas as pd
-from DataPipeline.globals import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, PREFERRED_TIME_COLUMN, get_variables
+from DataPipeline.vocabulary import LEGS, EXPERIMENTS, INSTRUMENTS, RENAME_COLUMNS, PREFERRED_TIME_COLUMN, get_variables
 from DataPipeline.ingest.input_tools import import_and_process_sources, input_folders_processer, update_csv
 from DataPipeline.sensors.data_processing_sensors import data_process, keep_and_rename
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths
-from DataPipeline.ingest.preprocessing import to_utc
-from DataPipeline.main_globals import (
+from DataPipeline.settings import (
     CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES,
     GGA_GAP_FILL_THRESHOLD_MINUTES, BRIDGE_GAP_FILL_THRESHOLD_MINUTES,
 )
@@ -22,6 +20,7 @@ from DataPipeline.sensors.gps_gap_fill import (
     merge_gga_with_gap_fill,
     keep_previous_fill_fixes,
     load_cached_merged_positions,
+    load_existing_gps,
     gps_merged_sources_path,
     ECHOSOUNDER_NC_SUBFOLDER,
     ECHOSOUNDER_CSV_SUBFOLDER,
@@ -220,30 +219,6 @@ def _apply_gga_gap_fill(cruise, current_leg, gga_df, gga_cleaned_csv, gga_combin
     return merged
 
 
-def _load_existing_gps(cruise, current_leg):
-    """
-    Load the leg's existing GPS-MERGED-SOURCES.csv (written by a previous
-    NAVIGATION/GGA run) to geotag against when GGA isn't part of this run.
-    Returns (gga_df, path), or (None, None) with a warning if it doesn't
-    exist yet -- instruments then run un-geotagged, as a NAVIGATION run is
-    needed first. Never triggers gap-fill itself (that's expensive).
-    """
-    _in, _out, exp_folder_name, *_rest = input_folders_processer(
-        current_leg, "NAVIGATION", "GGA", cruise=cruise
-    )
-    merged_path = gps_merged_sources_path(cruise, current_leg, exp_folder_name)
-    if not os.path.exists(merged_path):
-        print(
-            f"      [WARN] NAVIGATION/GGA not in this run and {os.path.basename(merged_path)} "
-            f"doesn't exist yet -- instruments will NOT be geotagged. Process NAVIGATION first."
-        )
-        return None, None
-    print(f"      [GPS] NAVIGATION/GGA not in this run; geotagging against existing {os.path.basename(merged_path)}")
-    gps = pd.read_csv(merged_path)
-    gps["time"] = to_utc(gps["time"])
-    return gps, merged_path
-
-
 def run_processing(
     cruise,
     leg,
@@ -253,7 +228,7 @@ def run_processing(
     only_variables=None,
 ):
     if cruise is None or leg is None:
-        raise ValueError("run_processing requires cruise and leg to be provided by main_globals.py")
+        raise ValueError("run_processing requires cruise and leg to be provided by settings.py")
     leg_start_end_path, sooguard_log_path = get_logsheet_paths(cruise)
 
     legs = LEGS if leg is None else [leg]
@@ -285,7 +260,7 @@ def run_processing(
             and (only_instruments is None or "GGA" in only_instruments)
         )
         if not gga_in_run:
-            gga_df, gps_merged_path = _load_existing_gps(cruise, current_leg)
+            gga_df, gps_merged_path = load_existing_gps(cruise, current_leg)
 
         for experiment in experiments:
             print(f"\nPROCESSING LEG {current_leg}: {experiment}")

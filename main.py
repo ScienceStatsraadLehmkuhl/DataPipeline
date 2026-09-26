@@ -4,10 +4,10 @@ from DataPipeline.sensors.main_process_sensors import run_processing
 from DataPipeline.ctd.main_process_ctd import run_processing_ctd
 from DataPipeline.plotting.main_plot import run_plotting, run_expedition_plotting
 from DataPipeline.ctd.main_plot_ctd import run_plotting_ctd
-from DataPipeline.main_globals import *
-from DataPipeline.globals import LEGS
+from DataPipeline.settings import *
+from DataPipeline.vocabulary import LEGS
 from DataPipeline.cli import parse_args
-from DataPipeline.products.combine_dataset_new import combine_all_intervals
+from DataPipeline.products.combine import combine_all_intervals
 from DataPipeline.products.gap_analysis import run_gap_analysis
 from DataPipeline.acoustics.main_process_acoustics import run_processing_acoustics
 

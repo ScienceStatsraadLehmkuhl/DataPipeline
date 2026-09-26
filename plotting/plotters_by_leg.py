@@ -11,7 +11,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
-from DataPipeline.globals import PLOT_LABELS, get_categorical_codes
+from DataPipeline.vocabulary import PLOT_LABELS, get_categorical_codes
 from DataPipeline.ingest.manual_data_read import  load_leg_windows
 from DataPipeline.ingest.preprocessing import to_utc
 

@@ -13,7 +13,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import pandas as pd
-from DataPipeline.globals import VARIABLES
+from DataPipeline.vocabulary import VARIABLES
 
 # Register namespace to handle it properly
 ET.register_namespace('', 'http://www.aadi.no/RTOutSchema')

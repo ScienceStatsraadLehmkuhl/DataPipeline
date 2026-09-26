@@ -16,7 +16,7 @@ EK80/GPS setup.
 For EK80 specifically, only the .raw files overlapping a gap window are
 converted (by parsing the timestamp out of each filename, no need to open
 files that can't matter), instead of paying for the full leg -- EK80
-conversion is the expensive step and, per DataPipeline/main_globals.py,
+conversion is the expensive step and, per DataPipeline/settings.py,
 full EK80 processing is often deferred to its own separate run anyway.
 Files converted here are reused (not reconverted) whenever that full run
 happens later, via the existing staleness check in
@@ -48,7 +48,7 @@ import pandas as pd
 from DataPipeline.products.gap_analysis import analyze_gaps_for_file
 from DataPipeline.ingest.manual_data_read import load_leg_windows
 from DataPipeline.ingest.fromzipxmltojson import convert_zips_to_csvs, read_csv
-from DataPipeline.ingest.input_tools import RELEVANT_INPUT_EXTS, give_me_full_folder_name
+from DataPipeline.ingest.input_tools import RELEVANT_INPUT_EXTS, give_me_full_folder_name, input_folders_processer
 from DataPipeline.acoustics.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
 from DataPipeline.acoustics.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
 from DataPipeline.ingest.preprocessing import ensure_time, to_utc
@@ -79,6 +79,30 @@ def gps_merged_sources_path(cruise: str, leg, exp_folder_name: str) -> str:
     checking) must agree on it exactly.
     """
     return os.path.join(exp_folder_name, f"{cruise}_LEG{leg}_NAVIGATION_GPS-MERGED-SOURCES.csv")
+
+
+def load_existing_gps(cruise, current_leg):
+    """
+    Load the leg's existing GPS-MERGED-SOURCES.csv (written by a previous
+    NAVIGATION/GGA run) to geotag against when GGA isn't part of this run.
+    Returns (gga_df, path), or (None, None) with a warning if it doesn't
+    exist yet -- instruments then run un-geotagged, as a NAVIGATION run is
+    needed first. Never triggers gap-fill itself (that's expensive).
+    """
+    _in, _out, exp_folder_name, *_rest = input_folders_processer(
+        current_leg, "NAVIGATION", "GGA", cruise=cruise
+    )
+    merged_path = gps_merged_sources_path(cruise, current_leg, exp_folder_name)
+    if not os.path.exists(merged_path):
+        print(
+            f"      [WARN] NAVIGATION/GGA not in this run and {os.path.basename(merged_path)} "
+            f"doesn't exist yet -- instruments will NOT be geotagged. Process NAVIGATION first."
+        )
+        return None, None
+    print(f"      [GPS] NAVIGATION/GGA not in this run; geotagging against existing {os.path.basename(merged_path)}")
+    gps = pd.read_csv(merged_path)
+    gps["time"] = to_utc(gps["time"])
+    return gps, merged_path
 
 
 def load_cached_merged_positions(merged_path: str, gga_source_csv: str) -> pd.DataFrame | None:
@@ -468,7 +492,7 @@ def extract_ferrybox_positions(
 
     `ferrybox_df`'s canonical `time_col` is expected to already be built
     from the right source column upstream (see
-    globals.PREFERRED_TIME_COLUMN / preprocessing.ensure_time) -- this
+    vocabulary.PREFERRED_TIME_COLUMN / preprocessing.ensure_time) -- this
     function just consumes it.
     """
     empty = pd.DataFrame(columns=POSITION_COLUMNS)

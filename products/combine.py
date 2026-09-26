@@ -7,9 +7,9 @@ from typing import Dict, Iterable, List, Tuple
 
 import pandas as pd
 
-from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, LEGS
-from DataPipeline.main_globals import CRUISE as DEFAULT_CRUISE
-from DataPipeline.main_globals import INTERVALS, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
+from DataPipeline.vocabulary import EXPERIMENTS, INSTRUMENTS, LEGS
+from DataPipeline.settings import CRUISE as DEFAULT_CRUISE
+from DataPipeline.settings import INTERVALS, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
 from DataPipeline.ingest.preprocessing import TIME_FORMAT, to_utc
 
 # ---- Paths ----
@@ -192,7 +192,7 @@ def combine_all_intervals(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Combine processed files for a cruise.")
-    parser.add_argument("--cruise", default=None, help="Cruise folder name under processed_data. Defaults to main_globals.CRUISER.")
+    parser.add_argument("--cruise", default=None, help="Cruise folder name under processed_data. Defaults to settings.CRUISE.")
     parser.add_argument("--intervals", nargs="+", default=None, help="Intervals to process. Defaults to all supported intervals.")
     parser.add_argument("--only-experiments", nargs="+", default=ONLY_EXPERIMENTS, help="Filter to specific experiment names.")
     parser.add_argument("--only-instruments", nargs="+", default=ONLY_INSTRUMENTS, help="Filter to specific instrument names.")

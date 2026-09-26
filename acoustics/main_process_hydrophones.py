@@ -5,7 +5,7 @@ Per leg and hydrophone: txt -> per-file CSV -> combined
 {cruise}_LEG{leg}_ACOUSTIC_Hydrophone_{serial}.csv (input_tools_hydrophones),
 then the same data_process() every sensor gets: geotag against the leg's
 GPS-MERGED-SOURCES table, cleaning, and the _1min/_3min/_5min/_1h/_1D
-averages (dB levels averaged energetically, see globals.DB_LEVEL_PREFIXES).
+averages (dB levels averaged energetically, see vocabulary.DB_LEVEL_PREFIXES).
 cleaning() has no rules for the hydrophones, so no row or value is removed.
 
 The wav recordings (LUW*.wav) are not processed here; they get their own
@@ -17,7 +17,7 @@ import traceback
 import pandas as pd
 
 from DataPipeline.sensors.data_processing_sensors import data_process
-from DataPipeline.globals import HYDROPHONE_SERIALS, LEGS
+from DataPipeline.vocabulary import HYDROPHONE_SERIALS, LEGS
 from DataPipeline.ingest.input_tools import _has_output_csvs, input_folders_processer
 from DataPipeline.acoustics.input_tools_hydrophones import (
     HYDROPHONE_RAW_SUBFOLDER,
@@ -25,8 +25,8 @@ from DataPipeline.acoustics.input_tools_hydrophones import (
     ensure_hydrophone_combined_csv,
     list_spectrum_txts,
 )
-from DataPipeline.main_globals import CRUISE, LEG
-from DataPipeline.sensors.main_process_sensors import _load_existing_gps
+from DataPipeline.settings import CRUISE, LEG
+from DataPipeline.sensors.gps_gap_fill import load_existing_gps
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths
 
 EXPERIMENT = "ACOUSTIC"
@@ -92,7 +92,7 @@ def run_processing_hydrophones(cruise, leg=None, serials=None):
                     continue
 
                 if gga_df is None:
-                    gga_df, gps_merged_path = _load_existing_gps(cruise, current_leg)
+                    gga_df, gps_merged_path = load_existing_gps(cruise, current_leg)
 
                 df = pd.read_csv(combined_path, low_memory=False)
                 data_process(

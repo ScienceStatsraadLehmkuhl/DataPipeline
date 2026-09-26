@@ -25,7 +25,7 @@ pip install pandas numpy matplotlib openpyxl
 ## Data locations
 
 The default paths are configured in `ingest/input_tools.py` and
-`main_globals.py`. The pipeline currently expects the raw and processed data
+`settings.py`. The pipeline currently expects the raw and processed data
 shares to be mounted at:
 
 ```text
@@ -94,7 +94,7 @@ Useful options include:
 Combine already processed leg files at several time intervals:
 
 ```bash
-python -m DataPipeline.products.combine_dataset_new \
+python -m DataPipeline.products.combine \
 	--cruise 2026_SaS \
 	--intervals 1min 3min 5min 1h 1D
 ```
@@ -153,8 +153,8 @@ combined_files/gap_analysis_{cruise}.xlsx
 
 ## Configuration
 
-Edit `main_globals.py` to set the default cruise, leg, execution mode, and
-optional filters. `globals.py` contains the configured legs, experiments,
+Edit `settings.py` to set the default cruise, leg, execution mode, and
+optional filters. `vocabulary.py` contains the configured legs, experiments,
 instruments, variables, column mappings, and plot labels.
 
 ```python
@@ -182,8 +182,8 @@ Top level:
 
 - `main.py`: workflow dispatcher and command-line entry point
 - `cli.py`: command-line argument parsing
-- `globals.py`: experiment and instrument configuration
-- `main_globals.py`: runtime defaults and filters
+- `vocabulary.py`: experiment and instrument configuration
+- `settings.py`: runtime defaults and filters
 
 `ingest/` — reading raw files and the logsheets:
 
@@ -216,7 +216,7 @@ Top level:
 
 `products/` — cruise-wide outputs built from the processed legs:
 
-- `combine_dataset_new.py`: cruise-wide data combination
+- `combine.py`: cruise-wide data combination
 - `gap_analysis.py`: gap reports and statistics
 
 ## Notes

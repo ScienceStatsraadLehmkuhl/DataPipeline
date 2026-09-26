@@ -1,6 +1,6 @@
 """
 Expedition-length time series plots, built from the combined 5-min files
-that combine_dataset_new.py produces (one CSV per experiment/instrument,
+that combine.py produces (one CSV per experiment/instrument,
 spanning all legs). Figures are saved under combined_files/figures/{pdf,png}.
 """
 from __future__ import annotations
@@ -14,9 +14,9 @@ import matplotlib.ticker as mticker
 import matplotlib.transforms as mtransforms
 import pandas as pd
 
-from DataPipeline.globals import EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
-from DataPipeline.main_globals import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
-from DataPipeline.products.combine_dataset_new import combined_output_folder, combined_output_root, resolve_cruise
+from DataPipeline.vocabulary import EXPERIMENTS, INSTRUMENTS, PLOT_LABELS, get_variables
+from DataPipeline.settings import ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, ONLY_VARIABLES
+from DataPipeline.products.combine import combined_output_folder, combined_output_root, resolve_cruise
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths, load_leg_windows
 from DataPipeline.plotting.plotters_by_leg import plot_property_over_time_pub, process_fig
 
@@ -223,7 +223,7 @@ def plot_expedition_report(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot expedition-length time series from combined interval files.")
-    parser.add_argument("--cruise", default=None, help="Cruise folder name under processed_data. Defaults to main_globals.CRUISE.")
+    parser.add_argument("--cruise", default=None, help="Cruise folder name under processed_data. Defaults to settings.CRUISE.")
     parser.add_argument("--interval", default=EXPEDITION_INTERVAL, help="Combined interval to plot from (must already exist under combined_files/).")
     parser.add_argument("--max-gap", default=EXPEDITION_MAX_GAP, help="Break the line when the time gap exceeds this (pandas offset string).")
     parser.add_argument("--only-experiments", nargs="+", default=ONLY_EXPERIMENTS, help="Filter to specific experiment names.")

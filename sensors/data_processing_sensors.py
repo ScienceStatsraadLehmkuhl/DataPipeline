@@ -7,7 +7,7 @@ import numpy as np
 from DataPipeline.ingest.input_tools import *
 from DataPipeline.sensors.cleaning_Ferrybox import cleaning
 
-from DataPipeline.globals import RENAME_COLUMNS, get_categorical_codes, get_db_level_columns
+from DataPipeline.vocabulary import RENAME_COLUMNS, get_categorical_codes, get_db_level_columns
 from DataPipeline.ingest.preprocessing import TIME_ALIAS, to_utc
 import numpy as np
 import pandas as pd
