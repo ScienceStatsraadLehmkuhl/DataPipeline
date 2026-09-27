@@ -5,6 +5,7 @@ being buried in individual scripts. Edit the values below, then run
 `main.py` (or the relevant script) — nothing else needs to change.
 
 Sections:
+    - Data locations            -- where the raw and processed shares are mounted
     - Cruise/leg selection      -- which cruise and leg(s) to process
     - Run mode                  -- process vs. plot, and what to include
     - Acoustics                 -- the separate acoustics pipeline
@@ -12,6 +13,17 @@ Sections:
     - Plotting                  -- default plot types
     - Cleaning / gap-filling    -- thresholds used by cleaning and gap-fill steps
 """
+
+
+# ============================================================
+# Data locations
+# ============================================================
+
+## Mount points of the two NAS shares (kernel CIFS mounts from /etc/fstab).
+## RAW_ROOT is the geomatics share: raw data, strictly read-only (mounted ro).
+## The old gvfs mounts were /run/user/1000/gvfs/smb-share:server=sl-nas.local,share={geomatics,processed_data}
+RAW_ROOT = "/mnt/geomatics"
+PROCESSED_ROOT = "/mnt/processed_data"
 
 
 # ============================================================

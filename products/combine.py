@@ -9,13 +9,11 @@ import pandas as pd
 
 from DataPipeline.vocabulary import EXPERIMENTS, INSTRUMENTS, LEGS
 from DataPipeline.settings import CRUISE as DEFAULT_CRUISE
-from DataPipeline.settings import INTERVALS, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
+from DataPipeline.settings import INTERVALS, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS, PROCESSED_ROOT
 from DataPipeline.ingest.preprocessing import TIME_FORMAT, to_utc
 
 # ---- Paths ----
-PROCESSED_DATA_ROOT = Path(
-    "/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data"
-)
+PROCESSED_DATA_ROOT = Path(PROCESSED_ROOT)
 
 def resolve_cruise(cruise: str | None = None) -> str:
     return cruise or DEFAULT_CRUISE

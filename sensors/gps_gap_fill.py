@@ -52,6 +52,7 @@ from DataPipeline.ingest.input_tools import RELEVANT_INPUT_EXTS, give_me_full_fo
 from DataPipeline.acoustics.input_tools_ek80_adcp import EK80_ADCP_OUTPUT_SUBFOLDER
 from DataPipeline.acoustics.input_tools_ek80_echosounder import process_ek80_echosounder_raw_file
 from DataPipeline.ingest.preprocessing import ensure_time, to_utc
+from DataPipeline.settings import RAW_ROOT
 
 
 POSITION_COLUMNS = ["time", "latitude_deg", "longitude_deg", "source"]
@@ -587,7 +588,7 @@ def find_bridge_input_folder(cruise: str, leg) -> str | None:
     branch (input_tools.input_folders_processer), which doesn't fit this
     source.
     """
-    leg_root = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=geomatics/{cruise}/LEG{leg}"
+    leg_root = f"{RAW_ROOT}/{cruise}/LEG{leg}"
     leg_root = give_me_full_folder_name(leg_root, str(leg))
     if leg_root is None:
         return None

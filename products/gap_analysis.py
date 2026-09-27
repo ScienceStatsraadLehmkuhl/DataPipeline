@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from DataPipeline.vocabulary import EXPERIMENTS, INSTRUMENTS, LEGS
-from DataPipeline.settings import CRUISE, GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT, LEG
+from DataPipeline.settings import CRUISE, GAP_THRESHOLD_MINUTES, GAP_THRESHOLD_MINUTES_BY_INSTRUMENT, LEG, PROCESSED_ROOT
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths, load_leg_windows
 from DataPipeline.ingest.preprocessing import to_utc
 
@@ -58,9 +58,7 @@ def iter_target_files(cruise: str, legs: Iterable[str] | None = None) -> Iterabl
     Missing files are yielded too (with exists=False) so callers can report
     "No data" for them instead of silently skipping them.
     """
-    base_dir = Path(
-        f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}"
-    )
+    base_dir = Path(PROCESSED_ROOT) / cruise
 
     if legs is None:
         legs = LEGS
@@ -509,9 +507,7 @@ def run_gap_analysis(
     leg: single leg to run. Omit / pass None to run all legs (same convention
     as the other run_* entry points).
     """
-    cruise_dir = Path(
-        f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}"
-    )
+    cruise_dir = Path(PROCESSED_ROOT) / cruise
     combined_output_dir = cruise_dir / "combined_files"
     combined_output_dir.mkdir(parents=True, exist_ok=True)
 

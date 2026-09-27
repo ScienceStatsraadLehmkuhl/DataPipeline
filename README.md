@@ -24,13 +24,22 @@ pip install pandas numpy matplotlib openpyxl
 
 ## Data locations
 
-The default paths are configured in `ingest/input_tools.py` and
+The share mount points are set by `RAW_ROOT` and `PROCESSED_ROOT` in
 `settings.py`. The pipeline currently expects the raw and processed data
 shares to be mounted at:
 
 ```text
-/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=geomatics/{cruise}/
-/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/
+/mnt/geomatics/{cruise}/        (raw data, mounted read-only)
+/mnt/processed_data/{cruise}/
+```
+
+Both are kernel CIFS mounts from `/etc/fstab` (credentials in
+`/root/.smb-slnas`), which list and stat files about 10x faster than the
+GNOME gvfs mounts (`/run/user/1000/gvfs/...`) used before:
+
+```text
+//sl-nas.local/geomatics       /mnt/geomatics       cifs  ro,credentials=/root/.smb-slnas,uid=1000,gid=1000,vers=3.1.1,actimeo=30,nofail,x-systemd.automount,_netdev  0 0
+//sl-nas.local/processed_data  /mnt/processed_data  cifs  rw,credentials=/root/.smb-slnas,uid=1000,gid=1000,vers=3.1.1,actimeo=30,nofail,x-systemd.automount,_netdev  0 0
 ```
 
 Raw data is organized by leg and instrument. A cruise also needs a

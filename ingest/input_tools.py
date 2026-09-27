@@ -4,13 +4,14 @@ from pathlib import Path
 from DataPipeline.ingest.fromzipxmltojson import convert_zips_to_csvs
 from DataPipeline.ingest.fileformatconversion import  convert_jsons_to_csvs, copy_csv_files, convert_cnv_to_csv
 from DataPipeline.ingest.preprocessing import from_csvs_to_csv, format_time
+from DataPipeline.settings import RAW_ROOT, PROCESSED_ROOT
 
 
 def input_folders_processer(leg, experiment, instrument, cruise):
     """
     Provide the full path of the input and output as a function of the instrument, experiment, leg
     """
-    input_folder_root = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=geomatics/{cruise}/LEG{leg}"
+    input_folder_root = f"{RAW_ROOT}/{cruise}/LEG{leg}"
     input_folder_root = give_me_full_folder_name(input_folder_root, leg)
 
     # Exception: NAVIGATION has {experiment}/SEAPATH/{instrument}
@@ -19,10 +20,10 @@ def input_folders_processer(leg, experiment, instrument, cruise):
     else:
         input_folder_name = f"{input_folder_root}/{experiment}/{instrument}"
 
-    output_folder_name = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/LEG{leg}/{experiment}/{instrument}"
-    exp_folder_name = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/LEG{leg}/{experiment}"
-    fig_png_folder_name = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/LEG{leg}/FIGURES/PNG"
-    fig_pdf_folder_name = f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/LEG{leg}/FIGURES/PDF"
+    output_folder_name = f"{PROCESSED_ROOT}/{cruise}/LEG{leg}/{experiment}/{instrument}"
+    exp_folder_name = f"{PROCESSED_ROOT}/{cruise}/LEG{leg}/{experiment}"
+    fig_png_folder_name = f"{PROCESSED_ROOT}/{cruise}/LEG{leg}/FIGURES/PNG"
+    fig_pdf_folder_name = f"{PROCESSED_ROOT}/{cruise}/LEG{leg}/FIGURES/PDF"
 
 
     base_name = f"{cruise}_LEG{leg}_{experiment}_{instrument}"

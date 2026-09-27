@@ -3,9 +3,10 @@ from functools import lru_cache
 from pathlib import Path
 
 from DataPipeline.ingest.preprocessing import to_utc
+from DataPipeline.settings import PROCESSED_ROOT
 
 def get_logsheet_paths(cruise):
-    root = Path(f"/run/user/1000/gvfs/smb-share:server=sl-nas.local,share=processed_data/{cruise}/data_entries")
+    root = Path(PROCESSED_ROOT) / cruise / "data_entries"
 
     return (
         root / f"{cruise}_Logsheet_LegNumber_StartDate-Time.xlsx",
