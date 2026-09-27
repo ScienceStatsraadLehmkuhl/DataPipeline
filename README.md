@@ -231,7 +231,7 @@ Top level:
 ## Authors and contributors
 
 - **Natacha Fabregas**: all code development of the data pipeline.
-- **Thomas Rost** :
+- **Thomas Rost**:
 	designed the original hydrophone anomaly detection pipeline, which
 	Natacha Fabregas then integrated into the data pipeline
 	(`acoustics/hydrophone_anomalies.py`).

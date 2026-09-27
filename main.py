@@ -34,6 +34,13 @@ if __name__ == "__main__":
                 only_experiments=args.only_experiments,
                 only_instruments=args.only_instruments,
             )
+            # Before this leg's plots, so its acoustic figures show fresh data
+            if args.run_acoustics:
+                run_processing_acoustics(
+                    cruise=args.cruise,
+                    leg=leg,
+                    only_acoustics=args.only_acoustics,
+                )
 
         if args.mode in ("plot", "both"):
             run_plotting(
@@ -51,12 +58,9 @@ if __name__ == "__main__":
                 only_instruments=args.only_instruments,
             )
 
-    if args.run_acoustics and args.mode in ("process", "both"):
-        run_processing_acoustics(
-            cruise=args.cruise,
-            leg=args.leg,
-            only_acoustics=args.only_acoustics,
-        )
+        print(f"\n{'=' * 40}")
+        print(f"    FINISHED LEG {leg}")
+        print(f"{'=' * 40}")
 
     if args.run_combine and args.mode in ("process", "both"):
         combine_all_intervals(

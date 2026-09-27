@@ -39,7 +39,8 @@ from DataPipeline.ingest.input_tools import input_folders_processer, update_csv
 from DataPipeline.ingest.preprocessing import format_time, to_utc
 from DataPipeline.sensors.data_processing_sensors import add_gps_coordinates_from_df
 from DataPipeline.sensors.gps_gap_fill import load_existing_gps
-from DataPipeline.settings import CRUISE, HYDROPHONE_ANOMALY_CONFIG, LEG
+from DataPipeline.settings import CRUISE, LEG
+from DataPipeline.settings_hydrophone_anomalies import HYDROPHONE_ANOMALY_CONFIG
 from DataPipeline.vocabulary import HYDROPHONE_SERIALS, LEGS
 
 EXPERIMENT = "ACOUSTIC"

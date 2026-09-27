@@ -7,6 +7,9 @@ import os
 # the HDF5 library.
 os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
 
+import shutil
+import tempfile
+import time
 import traceback
 from collections import defaultdict
 from contextlib import contextmanager
@@ -315,6 +318,47 @@ def _build_ek80_adcp_dataset(extracted: dict, raw_filename: str, sonar_model: st
     return ds
 
 
+def _copy_to_network_share_with_retry(
+    src_path: str, dst_path: str, dst_folder_name: str, attempts: int = 5, delay_seconds: float = 1.0
+) -> None:
+    """
+    Copy a finished local file to the network share, retrying on ENOENT.
+
+    The gvfs/FUSE SMB mounts this pipeline writes to have shown repeated
+    metadata quirks (no symlinks, no chmod, unreliable HDF5 file reopen);
+    this adds a "just-created directory isn't visible yet to a subsequent
+    open()" quirk to that list -- os.makedirs() reports success, but the
+    following copyfile() can still raise FileNotFoundError. Re-asserting
+    the directory and retrying rides out a short-lived version of that lag.
+
+    If retries don't help, the cause has (in practice) been GVFS's own
+    daemon caching a stale negative lookup for that exact destination path
+    -- confirmed by: the directory demonstrably exists (stat/listdir both
+    succeed), a different filename in the same directory writes fine, and
+    even deleting and recreating the directory does not clear it for the
+    original filename. That is a client-side cache problem in gvfsd, not
+    something retrying from this process can fix; unmounting and
+    remounting the share (`gio mount -u` on it, then access it again to
+    trigger auto-remount) has resolved it in practice.
+    """
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        os.makedirs(dst_folder_name, exist_ok=True)
+        try:
+            shutil.copyfile(src_path, dst_path)
+            return
+        except FileNotFoundError as exc:
+            last_error = exc
+            if attempt < attempts:
+                time.sleep(delay_seconds)
+    raise FileNotFoundError(
+        f"Could not create {dst_path!r} after {attempts} attempts, even though its parent "
+        "directory exists. This matches a known GVFS/SMB client-side cache issue rather than "
+        "a code bug: try unmounting and remounting the network share (e.g. `gio mount -u` on "
+        "the share, then access it again to trigger auto-remount) and rerun."
+    ) from last_error
+
+
 def write_ek80_adcp_output(
     extracted: dict | None, raw_file_path: str, output_folder_name: str, sonar_model: str = "EK80"
 ) -> str | None:
@@ -337,7 +381,14 @@ def write_ek80_adcp_output(
 
     ds = _build_ek80_adcp_dataset(extracted, raw_filename, sonar_model)
     nc_path = os.path.join(output_folder_name, f"{raw_filename}_ADCP.nc")
-    ds.to_netcdf(nc_path)
+    # Writing HDF5 straight onto the gvfs/FUSE SMB mount intermittently fails
+    # with "NetCDF: HDF error" and leaves a truncated .nc behind (which the
+    # staleness check then treats as done). Build it on local disk and copy
+    # the finished file over, as process_ek80_echosounder_raw_file does.
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        local_nc_path = os.path.join(tmp_dir, os.path.basename(nc_path))
+        ds.to_netcdf(local_nc_path)
+        _copy_to_network_share_with_retry(local_nc_path, nc_path, output_folder_name)
     if os.path.exists(marker_path):
         os.remove(marker_path)  # the raw file changed and now has ADCP data
     print(f"      [OK] ADCP channels extracted: {os.path.basename(raw_file_path)} -> {os.path.basename(nc_path)}")

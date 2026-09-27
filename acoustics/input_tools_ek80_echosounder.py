@@ -10,9 +10,7 @@ os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
 
 import gc
 import glob
-import shutil
 import tempfile
-import time
 import traceback
 from pathlib import Path
 
@@ -21,6 +19,7 @@ import echopype as ep
 
 from DataPipeline.acoustics.input_tools_ek80_adcp import (
     EK80ADCPCollector,
+    _copy_to_network_share_with_retry,
     exclude_ek80_adcp_channels,
     process_ek80_adcp_raw_file,
     stale_ek80_adcp_raw_files,
@@ -31,46 +30,6 @@ from DataPipeline.ingest.preprocessing import add_canonical_time, format_time
 
 RELEVANT_INPUT_EXTS_EK80_ECHOSOUNDER = (".raw",)
 
-
-def _copy_to_network_share_with_retry(
-    src_path: str, dst_path: str, dst_folder_name: str, attempts: int = 5, delay_seconds: float = 1.0
-) -> None:
-    """
-    Copy a finished local file to the network share, retrying on ENOENT.
-
-    The gvfs/FUSE SMB mounts this pipeline writes to have shown repeated
-    metadata quirks (no symlinks, no chmod, unreliable HDF5 file reopen);
-    this adds a "just-created directory isn't visible yet to a subsequent
-    open()" quirk to that list -- os.makedirs() reports success, but the
-    following copyfile() can still raise FileNotFoundError. Re-asserting
-    the directory and retrying rides out a short-lived version of that lag.
-
-    If retries don't help, the cause has (in practice) been GVFS's own
-    daemon caching a stale negative lookup for that exact destination path
-    -- confirmed by: the directory demonstrably exists (stat/listdir both
-    succeed), a different filename in the same directory writes fine, and
-    even deleting and recreating the directory does not clear it for the
-    original filename. That is a client-side cache problem in gvfsd, not
-    something retrying from this process can fix; unmounting and
-    remounting the share (`gio mount -u` on it, then access it again to
-    trigger auto-remount) has resolved it in practice.
-    """
-    last_error = None
-    for attempt in range(1, attempts + 1):
-        os.makedirs(dst_folder_name, exist_ok=True)
-        try:
-            shutil.copyfile(src_path, dst_path)
-            return
-        except FileNotFoundError as exc:
-            last_error = exc
-            if attempt < attempts:
-                time.sleep(delay_seconds)
-    raise FileNotFoundError(
-        f"Could not create {dst_path!r} after {attempts} attempts, even though its parent "
-        "directory exists. This matches a known GVFS/SMB client-side cache issue rather than "
-        "a code bug: try unmounting and remounting the network share (e.g. `gio mount -u` on "
-        "the share, then access it again to trigger auto-remount) and rerun."
-    ) from last_error
 
 # The Platform group bundles several independent sensor streams, each on its
 # own timestamp coordinate and sampling rate: time1 is GPS position fixes

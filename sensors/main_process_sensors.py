@@ -365,9 +365,9 @@ def run_processing(
                     )
                     continue
 
-        print(f"\n{'-' * 33}")
-        print(f"    FINISHED PROCESSING LEG {current_leg}")
-        print(f"{'-' * 33}")
+        print(f"\n{'-' * 40}")
+        print(f"    FINISHED SENSOR PROCESSING LEG {current_leg}")
+        print(f"{'-' * 40}")
 
 
 if __name__ == "__main__":

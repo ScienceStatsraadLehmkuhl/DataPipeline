@@ -90,7 +90,8 @@ def run_processing_acoustics(cruise, leg=None, only_acoustics=None, sonar_model=
         return
 
     print(f"\n{'=' * 80}")
-    print(f"                 PROCESSING ACOUSTICS: {cruise} -- sources: {sources}")
+    leg_label = "all legs" if leg is None else f"LEG {leg}"
+    print(f"                 PROCESSING ACOUSTICS: {cruise} {leg_label} -- sources: {sources}")
     print(f"{'=' * 80}")
 
     leg_start_end_path, sooguard_log_path = get_logsheet_paths(cruise)
