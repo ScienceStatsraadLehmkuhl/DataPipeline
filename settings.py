@@ -31,12 +31,12 @@ PROCESSED_ROOT = "/mnt/processed_data"
 # ============================================================
 
 ## Cruise: name of the cruise folder under processed_data
-#CRUISE = "2026_SaS"
-CRUISE = "2025_2026_OOE2"
+CRUISE = "2026_SaS"
+#CRUISE = "2025_2026_OOE2"
 
 ## Leg(s) to run
-LEG = "14"          # run only one leg
-#LEG = ["5", "29"]   # run a specific list of legs
+#LEG = "18"          # run only one leg
+LEG = [ "14", "15", "16", "17", "18",  "19"]   # run a specific list of legs
 #LEG = None          # run all legs
 
 
@@ -48,7 +48,7 @@ LEG = "14"          # run only one leg
 MODE = "process"  # "process", "plot", or "both"
 
 ## Filters on what gets run (None = no filter, i.e. run everything)
-ONLY_EXPERIMENTS = ["ACOUSTIC"]   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"]; navigation is always included
+ONLY_EXPERIMENTS = ["ACOUSTICS"]   # e.g. ["OCEANOGRAPHY", "METEOROLOGY"]; navigation is always included
 ONLY_INSTRUMENTS = None   # e.g. ["Ferrybox_CTD"]
 ONLY_VARIABLES = None     # e.g. ["O2_Temperature"]
 
@@ -78,7 +78,7 @@ INTERVALS = ["1D", "1h", "5min"]    # add "3min", "1min", "cleaned" as needed
 ## Per-variable:  "time", "time_pts", "distribution" (one figure per variable per leg)
 ## Per-instrument (once per leg, each only applies to its own instrument):
 ##   "ferrybox_colour_pannel"  Ferrybox_CTD 6-panel overview
-##   "wind_rose"               GMX560 corrected wind
+##   "wind_rose"               Gill true wind (from cleaning_wind.py)
 ##   "cleaning_diagnostics"    Ferrybox_CTD raw vs cleaned (spikes, removed windows)
 ##   "gps_sources"             GPS-MERGED-SOURCES track/timeline/coverage by source
 ## The expedition-wide figures (time series, data coverage, GPS source summary)

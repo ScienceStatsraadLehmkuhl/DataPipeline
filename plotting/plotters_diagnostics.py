@@ -3,7 +3,7 @@ Diagnostic plots that go beyond one-variable-over-time.
 
 Per leg (plot types of main_plot.run_plotting; each one is gated to the
 instrument it applies to and returns None for any other):
-  wind_rose             METEOROLOGY/GMX560: corrected wind direction x speed
+  wind_rose             METEOROLOGY/Gill_2310037-WC76: true wind direction x speed
   cleaning_diagnostics  OCEANOGRAPHY/Ferrybox_CTD: what cleaning removed/blanked
   gps_sources           NAVIGATION/GPS-MERGED-SOURCES: track, timeline and
                         coverage of GGA vs the gap-fill sources
@@ -43,6 +43,7 @@ from DataPipeline.plotting.plotters_by_leg import (
     PLOT_COLORS, _leg_window_naive, _plot_with_gaps, get_plot_label, process_fig,
 )
 from DataPipeline.ingest.preprocessing import to_utc
+from DataPipeline.sensors.cleaning_wind import TRUE_DIR_COL, TRUE_SPEED_COL, TRUE_WIND_INSTRUMENT
 
 INK, MUTED, NEUTRAL, TRACK = (PLOT_COLORS[k] for k in ("ink", "muted", "neutral", "track"))
 BLUE, ORANGE, AQUA = PLOT_COLORS["blue"], PLOT_COLORS["orange"], PLOT_COLORS["aqua"]
@@ -90,15 +91,14 @@ def _runs(mask: pd.Series, times: pd.Series):
 
 
 # ---------------------------------------------------------------------------
-# Wind rose  (METEOROLOGY / GMX560)
+# Wind rose  (METEOROLOGY / Gill_2310037-WC76)
 # ---------------------------------------------------------------------------
 
-WIND_INSTRUMENT = ("METEOROLOGY", "GMX560")
-WIND_DIR_COL = "corrected_wind_direction_deg"
-WIND_SPEED_COL = "corrected_wind_speed"
+# the true wind computed by sensors/cleaning_wind.py
+WIND_INSTRUMENT, WIND_DIR_COL, WIND_SPEED_COL = TRUE_WIND_INSTRUMENT, TRUE_DIR_COL, TRUE_SPEED_COL
 WIND_N_SECTORS = 16
 WIND_CALM_BELOW = 0.5   # m/s: direction is meaningless in a calm
-# Speed classes in m/s (the GMX560 reports m/s by default; the export carries no unit column)
+# Speed classes in m/s
 WIND_SPEED_EDGES = [0.5, 3, 6, 9, 12, 15, np.inf]
 # One-hue sequential ramp, light -> dark (blue steps 200 300 400 500 600 700)
 WIND_RAMP = ["#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
@@ -173,7 +173,7 @@ def plot_wind_rose(
     leg=None, leg_start_end_path=None, leg_sheet_name=0, raw_csv_path=None,
 ):
     """
-    Wind rose of the GMX560's corrected (true) wind for one leg; None for any
+    Wind rose of the Gill's true wind for one leg; None for any
     other instrument. (`plot_labels`/`raw_csv_path` are unused; they keep the
     signature the same as the other per-leg diagnostic plots.)
     """

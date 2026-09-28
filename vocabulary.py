@@ -63,8 +63,8 @@ VARIABLES = {
             "compass_heading_deg",
             "relative_wind_direction_deg",
             "relative_wind_speed",
-            "corrected_wind_direction_deg",
-            "corrected_wind_speed",
+            "true_wind_direction_deg",
+            "true_wind_speed",
             "relative_gust_direction_deg_wmo",
             "relative_gust_speed_wmo",
         ],
@@ -76,10 +76,11 @@ VARIABLES = {
             "precipitation_intensity_mm_min",
         ],
         "Gill_2310037-WC76":[
-            "Wind angle", 
-            "Reference", 
-            "Wind speed", 
-            "Wind speed unit",
+            "wind_angle_deg",
+            "wind_speed_m_s",
+            # derived from the apparent wind + HDT/VTG (sensors/cleaning_wind.py)
+            "true_wind_direction_deg",
+            "true_wind_speed_m_s",
         ],
     },
 
@@ -213,9 +214,14 @@ RENAME_COLUMNS = {
         "VTG":{
             "Timestamp":"Timestamp",
             "time":"time",
-            "Course_over_ground,_degrees_magnetic": "course_over_ground_deg_mag", 
-            "Course_over_ground,_degrees_true": "course_over_ground_deg_true", 
+            # whole-leg export (legs 1-21)
+            "Course_over_ground,_degrees_magnetic": "course_over_ground_deg_mag",
+            "Course_over_ground,_degrees_true": "course_over_ground_deg_true",
             "Speed_over_ground,_knots": "speed_over_ground_kt",
+            # 15-min logger files (from 2025-12-03, leg 21 on)
+            "Course over ground, degrees magnetic": "course_over_ground_deg_mag",
+            "Course over ground, degrees true": "course_over_ground_deg_true",
+            "Speed over ground, knots": "speed_over_ground_kt",
         },
     },
     "METEOROLOGY": {
@@ -260,8 +266,11 @@ RENAME_COLUMNS = {
             "Compass Heading": "compass_heading_deg",
             "Relative Wind Direction": "relative_wind_direction_deg",
             "Relative Wind Speed": "relative_wind_speed",
-            "Corrected Wind Direction": "corrected_wind_direction_deg",
-            "Corrected Wind Speed": "corrected_wind_speed",
+            # The instrument's "corrected" wind is true wind (relative to true
+            # north, ship motion removed): matches the Gill true wind at anchor
+            # and under way outside the GMX560's sheltered sectors (legs 21, 25)
+            "Corrected Wind Direction": "true_wind_direction_deg",
+            "Corrected Wind Speed": "true_wind_speed",
             "Relative Gust Direction (WMO)": "relative_gust_direction_deg_wmo",
             "Relative Gust Speed (WMO)": "relative_gust_speed_wmo",
             },   
@@ -565,8 +574,8 @@ PLOT_LABELS = {
             "compass_heading_deg": "Compass heading (°)",
             "relative_wind_direction_deg": "Relative wind direction (°)",
             "relative_wind_speed": "Relative wind speed",
-            "corrected_wind_direction_deg": "Corrected wind direction (°)",
-            "corrected_wind_speed": "Corrected wind speed",
+            "true_wind_direction_deg": "True wind direction (°)",
+            "true_wind_speed": "True wind speed",
             "relative_gust_direction_deg_wmo": "Relative gust direction (WMO) (°)",
             "relative_gust_speed_wmo": "Relative gust speed (WMO)",
 
@@ -579,6 +588,14 @@ PLOT_LABELS = {
             "precipitation_intensity_mm_h": "Precipitation intensity (mm/h)",
             "precipitation_intensity_mm_min": "Precipitation intensity (mm/min)",
             "precipitation_type": "Precipitation type",
+        },
+
+        "Gill_2310037-WC76": {
+            "time": "Date and time (UTC)",
+            "wind_angle_deg": "Relative wind direction (°)",
+            "wind_speed_m_s": "Relative wind speed (m/s)",
+            "true_wind_direction_deg": "True wind direction (°)",
+            "true_wind_speed_m_s": "True wind speed (m/s)",
         },
     },
 

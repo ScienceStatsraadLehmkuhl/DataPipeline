@@ -64,9 +64,10 @@ def get_time_from_filename(filename, nrows, freq="1s", utc=True):
 def jsonlines_file_to_csv(json_path: Path, csv_path: Path) -> None:
     rows = []
     headers = set()
+    skipped = []
 
-    with json_path.open("r", encoding="utf-8") as f:
-        for line in f:
+    with json_path.open("r", encoding="utf-8", errors="replace") as f:
+        for lineno, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
                 continue
@@ -77,9 +78,25 @@ def jsonlines_file_to_csv(json_path: Path, csv_path: Path) -> None:
             if not line.endswith("}"):
                 line = line + "}"
 
-            obj = json.loads(line)
+            # A record that still doesn't parse is skipped, not fatal: raw files
+            # can be cut off mid-record (e.g. 2025_2026_OOE2 leg 1 GMX560/GMX300/
+            # Lufft files truncated at 8/188/256 KiB), and one bad line used to
+            # abort the whole instrument, so every later file stayed unconverted.
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                skipped.append(lineno)
+                continue
+            if not isinstance(obj, dict):
+                skipped.append(lineno)
+                continue
             rows.append(obj)
             headers.update(obj.keys())
+
+    if skipped:
+        print(f"      [WARN] {json_path.name}: skipped {len(skipped)} unparseable line(s) "
+              f"(line {', '.join(map(str, skipped[:5]))}{', ...' if len(skipped) > 5 else ''}); "
+              f"kept {len(rows)} record(s)")
 
     headers = sorted(headers)
     if "timestamp" in headers:

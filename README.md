@@ -205,7 +205,9 @@ Top level:
 
 - `main_process_sensors.py`: per-leg processing
 - `data_processing_sensors.py`: rename, geotag, clean and resample one instrument
-- `cleaning_Ferrybox.py`: sensor-specific cleaning rules
+- `cleaning.py`: `cleaning()`, which runs every instrument's rules (each gated to its own instrument)
+- `cleaning_Ferrybox.py`: Ferrybox_CTD cleaning rules
+- `cleaning_wind.py`: true wind for the Gill anemometer (apparent wind + HDT heading + VTG course/speed)
 - `gps_gap_fill.py`: fills GGA gaps from EK80, Ferrybox and the Bridge nav log
 
 `ctd/` — Seabird CTD profile processing and plotting (run automatically from `main.py`):

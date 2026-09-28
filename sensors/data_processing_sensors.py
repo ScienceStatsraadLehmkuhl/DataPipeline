@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import numpy as np
 from DataPipeline.ingest.input_tools import *
-from DataPipeline.sensors.cleaning_Ferrybox import cleaning
+from DataPipeline.sensors.cleaning import cleaning
 
 from DataPipeline.vocabulary import RENAME_COLUMNS, get_categorical_codes, get_db_level_columns
 from DataPipeline.ingest.preprocessing import TIME_ALIAS, to_utc
@@ -30,13 +30,43 @@ def keep_and_rename(df, rename_map, warn_missing=True, extra_keep=()):
     df = df[keep_raw].copy()
 
     if warn_missing:
-        missing = [c for c in rename_map if c not in df.columns]
+        # A canonical name can have several raw variants (the export format
+        # changed mid-cruise); it's only missing if none of them is present.
+        missing = sorted({t for c, t in rename_map.items() if t not in {rename_map.get(k, k) for k in keep_raw}})
         if missing:
             print(f"      Warning: missing expected columns: {missing}")
 
-    # 2. rename to standardized names
-    df = df.rename(columns=rename_map)
+    # 2. rename to standardized names. When several raw variants map to the
+    # same name (e.g. HDT "Heading,_degrees_true" from the whole-leg export and
+    # "Heading, degrees true" from the 15-min files), a plain rename would give
+    # duplicate columns and one variant's values would be lost downstream, so
+    # coalesce them: per row, the first non-empty variant (rename_map order).
+    targets = [rename_map.get(c, c) for c in keep_raw]
+    if len(set(targets)) == len(targets):
+        return df.rename(columns=rename_map)
 
+    merged = {}
+    for raw, target in zip(keep_raw, targets):
+        merged[target] = df[raw] if target not in merged else merged[target].combine_first(df[raw])
+    return pd.DataFrame(merged, index=df.index)
+
+
+def drop_duplicate_records(df, time_col="time"):
+    """
+    Drop rows that are exact duplicates once renamed: same time and same
+    value in every column. Happens when two exports of the same instrument
+    overlap (e.g. leg 21 Seapath: the whole-leg file and the 15-min files
+    both cover 2025-12-03..09). The raw time-string columns (TIME_ALIAS)
+    are ignored, since each export formats them differently. Rows sharing a
+    time but differing in any value are kept.
+    """
+    subset = [c for c in df.columns if c not in TIME_ALIAS]
+    if time_col not in subset:
+        return df
+    dup = df.duplicated(subset=subset, keep="first")
+    if dup.any():
+        print(f"      [DEDUP] dropped {int(dup.sum())} duplicate record(s) (same time and values)")
+        df = df[~dup]
     return df
 
 
@@ -226,6 +256,7 @@ def data_process(
     exclude_numeric_cols=None,  # columns to skip during numeric coercion (flags, IDs, notes, etc.)
     raw_source_path=None,       # NEW: path to the combined raw CSV `df` was loaded from
     gps_source_path=None,       # NEW: path to GPS-MERGED-SOURCES.csv (gga_df's own on-disk source)
+    cruise=None,                # needed by cleaning rules that read other processed files (Gill true wind)
     ):
 
     # Resolve the per-instrument rename map up front (fail early if missing).
@@ -241,7 +272,8 @@ def data_process(
         if time_col in frame.columns:
             frame[time_col] = to_utc(frame[time_col])
             frame = frame.sort_values(by=time_col)
-        return coerce_numeric_columns(frame, time_col=time_col, exclude=exclude_numeric_cols)
+        frame = coerce_numeric_columns(frame, time_col=time_col, exclude=exclude_numeric_cols)
+        return drop_duplicate_records(frame, time_col=time_col)
 
     # Code-valued column (if any) that subsample() must take the dominant value of, not the mean
     categorical_col = next(iter(get_categorical_codes(experiment, instrument)), None)
@@ -304,6 +336,7 @@ def data_process(
             experiment=experiment,
             instrument=instrument,
             sooguard_path=sooguard_path,
+            cruise=cruise,
         )
 
         # --- Step 5: Save cleaned geotagged data + subsampled versions ---
@@ -329,6 +362,7 @@ def data_process(
             experiment=experiment,
             instrument=instrument,
             sooguard_path=sooguard_path,
+            cruise=cruise,
         )
         if do_clean else df
     )

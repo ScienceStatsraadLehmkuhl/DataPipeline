@@ -1,5 +1,5 @@
 """
-Ferrybox_CTD-specific cleaning rules, applied via `cleaning()`.
+Ferrybox_CTD-specific cleaning rules, applied via `cleaning()` in cleaning.py.
 
 All rules below are gated to experiment == "OCEANOGRAPHY" and
 instrument == "Ferrybox_CTD" and are no-ops otherwise:
@@ -198,50 +198,5 @@ def hampel_spike_clean(
         is_outlier = abs_dev > threshold
 
         out.loc[is_outlier[is_outlier].index, col] = np.nan
-
-    return out
-
-
-def cleaning(
-    df: pd.DataFrame,
-    *,
-    time_col: str = "time",
-    leg: int | None = None,
-    legs_path: str | None = None,
-    experiment: str | None = None,
-    instrument: str | None = None,
-    sooguard_path: str | None = None,
-) -> pd.DataFrame:
-    """
-    Apply Ferrybox_CTD cleaning rules to `df`, in order: pressure-removal
-    (only if `leg` is given), then Trilux zero-cleaning, then Hampel
-    spike removal.
-    """
-    out = df.copy()
-
-
-    if leg is not None:
-        out = pressure_removal_clean(
-            out,
-            leg=int(leg),
-            experiment=experiment or "",
-            instrument=instrument or "",
-            sooguard_path=sooguard_path,
-            pressure_col="ts_pressure",
-            time_col=time_col,
-        )
-
-    out = trilux_zero_clean(
-        out,
-        experiment=experiment or "",
-        instrument=instrument or "",
-    )
-
-    out = hampel_spike_clean(
-        out,
-        experiment=experiment or "",
-        instrument=instrument or "",
-        time_col=time_col,
-    )
 
     return out

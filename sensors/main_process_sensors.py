@@ -336,6 +336,7 @@ def run_processing(
                             sooguard_path=sooguard_log_path,
                             raw_source_path=combined_path,  # NEW
                             gps_source_path=gps_merged_path,  # NEW: also invalidate geotag if GPS source changed
+                            cruise=cruise,
                         )
 
                     if experiment == "NAVIGATION" and instrument == "GGA":

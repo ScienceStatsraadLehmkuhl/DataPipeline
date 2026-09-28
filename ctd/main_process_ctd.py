@@ -46,7 +46,7 @@ from DataPipeline.sensors.data_processing_sensors import (
     _derive_geotag_paths,
     _stale_relative_to,
 )
-from DataPipeline.sensors.cleaning_Ferrybox import cleaning
+from DataPipeline.sensors.cleaning import cleaning
 from DataPipeline.ingest.manual_data_read import get_logsheet_paths
 from DataPipeline.sensors.gps_gap_fill import load_existing_gps
 from DataPipeline.settings import CRUISE, LEG, ONLY_EXPERIMENTS, ONLY_INSTRUMENTS
